@@ -1,0 +1,44 @@
+private bool SendEmail(string link)
+        {
+            try
+            {
+                string body = string.Empty;
+                using (StreamReader reader = new StreamReader(Server.MapPath("~/Views/Shared/EmailTemplate.cshtml")))
+                {
+                    body = reader.ReadToEnd();
+                }
+                body = body.Replace("{Title}", "Dear Shahanaz Sultana"); //replacing the required things 
+                body = body.Replace("{Message}", link);
+                body = body.Replace("{FooterTitle}", "Thank you ");
+                body = body.Replace("{FooterMessage}", "Password Reset ");
+
+                var message = new MailMessage();
+                message.To.Add(new MailAddress("dsgpspublish@gmail.com"));  //maruf.ahammed@datasoft-bd.com replace with valid value 
+                message.From = new MailAddress("shahanazdev19@gmail.com");  //atik@datasoft-bd.com replace with valid value
+                message.Subject = "Your email subject";
+                message.Body = body;
+                message.IsBodyHtml = true;
+
+                using (var smtp = new SmtpClient())
+                {
+                    var credential = new NetworkCredential
+                    {
+                        UserName = "dsgpspublish@gmail.com",  // replace with valid value
+                        Password = "Ds@123456"  // replace with valid value
+
+                    };
+                    smtp.Credentials = credential;
+                    smtp.Host = "mail.datasoft-bd.com";
+                    smtp.Port = 25;
+                    smtp.EnableSsl = false;
+                    smtp.UseDefaultCredentials = false;
+                    smtp.Send(message);
+
+                }
+                return true;
+            }
+            catch (Exception)
+            {
+
+                return false;
+            }
