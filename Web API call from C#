@@ -1,0 +1,32 @@
+ #region GetEmployeeLoginByIdAndcompanyId
+        public JsonResult GetEmployeeLoginByIdAndcompanyId(int id, int CompanyId)
+        {
+            ToEmployeeInformations toEmpInfo = GetEmployeeLoginByIdAndcompanyIdFromAPI(id,CompanyId);
+            return Json(toEmpInfo, JsonRequestBehavior.AllowGet);
+        }
+        public ToEmployeeInformations GetEmployeeLoginByIdAndcompanyIdFromAPI(int id, int CompanyId)
+        {
+            var request = new RestRequest(Method.POST);
+            request.AddHeader("Accept", "application/json");
+            request.RequestFormat = DataFormat.Json; // Or DataFormat.Xml, if you prefer
+            request.AddParameter("id", id);
+            request.AddParameter("CompanyId", CompanyId);           
+            var re = HttpContext.Request.Headers;
+            string context = string.Empty;
+            if (re["context"] != null)
+            {
+                context = re.GetValues("context").First();
+            }
+            request.AddHeader("context", context);
+            RestClient client = new RestClient();
+            string url = "";
+            url = "http://192.168.1.210:8080/Getway/GetEmployeeLoginByIdAndcompanyId";
+           // url = "http://www.smartenterprisezone.com/se-api/Getway/GetEmployeeLoginByIdAndcompanyId";
+            client = new RestClient(url);
+            var response = client.Execute(request);
+            var r = response.Content;
+            var keyResponse = JsonConvert.DeserializeObject<ToEmployeeInformations>(response.Content);
+
+            return (ToEmployeeInformations)keyResponse;
+        }
+        #endregion
