@@ -1,0 +1,30 @@
+
+Microservice Learning Video-
+
+https://www.youtube.com/watch?v=DgVjEo3OGBI
+
+Microservice, Docker, Kubernetes, two services messaging, messaging using Bus,
+
+
+GraphQL(.NET 5.0, SQL Server Express, VS Code, Docker)
+- Query
+- Mutation
+- Subscription 
+
+Reack in 10 hours
+https://www.youtube.com/watch?v=4UZrsTqkcW4
+
+Make coding and development faster:
+1. Visual Studio Productivity Power Tools
+2. Web Essentials 2013.5
+3. Resharper
+
+
+-----------------
+Parameter passing ways to action:
+----------------------------------
+1. Pass parameter as a part of an URL
+2. Pass parameters with query string
+3. Pass parameters with headers.
+4. Pass parameters with request body.
+5. Pass Parameter in a form.
