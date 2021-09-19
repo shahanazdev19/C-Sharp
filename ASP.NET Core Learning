@@ -45,6 +45,15 @@ Routing:
 1. Conventional Routing
 2. Attribute Routing
 
+-----------------
+Parameter passing ways to action:
+----------------------------------
+1. Pass parameter as a part of an URL
+2. Pass parameters with query string
+3. Pass parameters with headers.
+4. Pass parameters with request body.
+5. Pass Parameter in a form.
+
 Code First Approach with EF
 ---------------------------
 Enable-Migration
