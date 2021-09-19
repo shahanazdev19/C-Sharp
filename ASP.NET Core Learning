@@ -1,0 +1,95 @@
+Learning Link-
+https://www.youtube.com/watch?v=DqD-NJf7-OM
+----------------------------------------------------
+.NET Core Application
+-----------------------
+Setup:
+1. Download visual studio 2019 (version 16+)
+2. Download SQL Server Developer version 2019
+3. Install .NET 5.0 sdk
+----
+.NET Core is a cross platform- open source 
+.NET 5.0 unified platform(desktop, web, cloud, mobile, IoT, AI)
+
+Component:
+--------------------
+Entity Framework Core
+Identity Core
+MVC Core
+Razor Core (Razor Pages)
+SignalR
+Blazor
+
+Evolution of .NET Core:
+-----------------------
+.NET Core 1.0-06-27-2016
+.NET Core 1.1-11-16-2016
+.NET Core 2.0-08-14-2017
+.NET Core 2.1-05-30-2018
+.NET Core 2.2-12-04-2018
+.NET Core 3.0-09-23-2019
+.NET Core 3.1-12-03-2019
+.NET 5-11-10-2020
+
+Crate a project:
+-------------------------------------------------------
+1. Select New>ASP.NET Core Web Application. Select next
+2. Insert project name. press create
+3. Select ASP.NET Core 5.0. 
+	select Web Application (Model View Controller)
+	select no authentication
+	select Enable Razor runtime compilation.
+	press create 
+Routing:
+--------
+1. Conventional Routing
+2. Attribute Routing
+
+Code First Approach with EF
+---------------------------
+Enable-Migration
+add-migration <migration name>
+Remove-migration(for removing last migration)
+Update-database
+Script-migration(Generates a SQL script using all the migration snapshots.) 
+
+1. add connectionstring in appsettings.json file
+"ConnectionStrings":{
+"DefaultConnection":"Server=.;Database=InAndOut; Trusted_Connection=True; MultipleActiveResultSet=True"
+}
+2. NugetManager>
+Install-
+1. Microsoft.EntityFrameworkCore.SqlServer
+2. Microsoft.EntityFrameworkCore
+3. Create a DbContext class inheriting DbContext, add constructor and inherit base class
+public class ApplicationDbContext:DbContext
+{
+	public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options):base(options)
+	{
+
+	}
+}
+4. Add sample class as DbSet after the constructor
+public DbSet<Item> Items {get;set;}
+5. In Startup.cs file configure connectionstring with applicationdbcontext
+public void ConfigureServices(IServiceCollection services)
+{
+	services.AddDbContext<ApplicationDbContext>(options=>
+		options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"))
+	);
+}
+5. Install Microsoft.EntityFrameworkCore.Tool
+6. run command for table creation
+add-migration <migration_name>
+Update-Database -verbose
+7. continue task by MVC pattern add, edit, delete as usual 
+8. In .NET Core all actionmethod and controller link assigning is different
+
+<a asp-controller"Expense" asp-action="Update" asp-route-Id="@expense.Id" class="btn btn-primary mx-1">Update</a>
+
+9. partial view can be added in script
+@section Scripts{
+	@{ <partial name="_validationScriptPartial"/>}
+}
+10. Hidden value example-
+<input asp-for="Id" hidden />
