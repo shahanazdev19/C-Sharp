@@ -1,0 +1,27 @@
+Command line instructions
+
+Git global setup
+git config --global user.name "Shahanaz Sultana"
+git config --global user.email "shahanaz.sultana@datasoft-bd.com"
+
+Create a new repository
+git clone http://shahanaz.sultana@192.168.1.15/shahanaz.sultana/ScriptSha.git
+cd ScriptSha
+touch README.md
+git add README.md
+git commit -m "add README"
+git push -u origin master
+
+Existing folder
+cd existing_folder
+git init
+git remote add origin http://shahanaz.sultana@192.168.1.15/shahanaz.sultana/ScriptSha.git
+git add .
+git commit -m "Initial commit"
+git push -u origin master
+
+Existing Git repository
+cd existing_repo
+git remote add origin http://shahanaz.sultana@192.168.1.15/shahanaz.sultana/ScriptSha.git
+git push -u origin --all
+git push -u origin --tags
