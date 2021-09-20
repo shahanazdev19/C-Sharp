@@ -1,0 +1,9 @@
+1. go to path C:\Windows\Microsoft.NET\Framework\v4.0.30319\
+        cd C:\Windows\Microsoft.NET\Framework\v4.0.30319\
+2. create a folder name without any space inside a drive and keep the exe file in that folder.
+   get the path and put that as follows-
+	InstallUtil.exe E:\SalaryService\SmartEnterprise.exe
+   run this, service will install and run
+3. to uninstall use the command-
+	InstallUtil.exe /u E:\SalaryService\SmartEnterprise.exe
+4. to see the service in running service list go to service.msc
