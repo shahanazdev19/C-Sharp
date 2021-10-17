@@ -1,0 +1,316 @@
+ #region Download Template
+        [SmartAuthorization(All = true)]
+        public ActionResult EmployeeBulkDownloadFormatView()
+        {
+            return View("~/Areas/PR/Views/PRLoanPayment/_BulkDownload.cshtml");
+        }
+        [HttpPost]
+        [SmartAuthorization(All = true)]
+        public ActionResult DownloadTemplate()
+        {
+            DataTable newDataTable = new System.Data.DataTable();
+            newDataTable = CreateDataTable();
+            List<PromotionIncrement> list = BindList<PromotionIncrement>(newDataTable);
+            ExcelPackage excel = new ExcelPackage();
+            var workSheet = excel.Workbook.Worksheets.Add("Sheet1");
+            string lastCellAddress = Convert.ToString(list.Count() + 1);
+            //setting header style
+            int initialColumn = 1;
+            int totalColumn = 13;
+            string firstColumn = "";
+            string lastColumn = "";
+
+            firstColumn = GetExcelColumnName(initialColumn);
+            lastColumn = GetExcelColumnName(totalColumn);
+            using (ExcelRange rng = workSheet.Cells[(firstColumn + "1:" + lastColumn + "1")])
+            {
+                rng.Style.Font.Bold = true;
+                rng.Style.Fill.PatternType = ExcelFillStyle.Solid;                      //Set Pattern for the background to Solid
+                rng.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(79, 129, 189));  //Set color to dark blue
+                rng.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                rng.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            }
+            try
+            {
+                //workSheet.Cells["G2:G100"].Style.Numberformat.Format = "@";
+                //for (int row = 0; row < 99; row++)
+                //{
+                //    //workSheet.Cells.Value = employeeAllowanceList.Rows;
+                //    DataRow dr = newDataTable.Rows[row];
+                //    for (int column = 0; column < dr.Table.Columns.Count; column++)
+                //    {
+                //        DataColumn dc = newDataTable.Columns[column];
+                //if (dc.ColumnName.ToString().Contains("Loan Payment Date") || dc.ColumnName.ToString().Contains("Start Date of Loan Repayment"))
+                //{
+                workSheet.Cells["B2:B100"].Style.Numberformat.Format = "dd-MMM-yyyy";
+                //var columnDateTime = workSheet.Cells["B2:B100"];
+                //var dateTimeValidation = columnDateTime.DataValidation.AddDateTimeDataValidation();
+                //dateTimeValidation.ShowInputMessage = true;
+                //dateTimeValidation.ShowErrorMessage = true;
+                //dateTimeValidation.Prompt = "Enter date here";
+                //dateTimeValidation.PromptTitle = "Value must be a valid datetime value";
+                //dateTimeValidation.Formula.ExcelFormula = DateTime.Now.Date.ToString("dd-MMM-yyyy");// "=DATE(2014,10,5)";
+                //dateTimeValidation.Formula2.ExcelFormula = DateTime.Now.Date.ToString("dd-MMM-yyyy");//.ExcelFormula = "2018-04-08";
+                //dateTimeValidation.Operator = ExcelDataValidationOperator.greaterThanOrEqual;
+                //dateTimeValidation.ErrorTitle = "Invalid Date";
+                
+                workSheet.Cells["C2:C100"].Style.Numberformat.Format = "dd-MMM-yyyy";
+                //var columnDateTime1 = workSheet.Cells["C2:C100"];
+                //var dateTimeValidation1 = columnDateTime1.DataValidation.AddDateTimeDataValidation();
+                //dateTimeValidation1.ShowInputMessage = true;
+                //dateTimeValidation1.ShowErrorMessage = true;
+                //dateTimeValidation1.Prompt = "Enter date here";
+                //dateTimeValidation1.PromptTitle = "Value must be a valid datetime value";
+                //dateTimeValidation1.Formula.ExcelFormula ="01-Jan-1900";//.ExcelFormula = "=DATE(2014,10,5)";
+                //dateTimeValidation1.Formula2.ExcelFormula = "30-Dec-2200";//.ExcelFormula = "2018-04-08";
+                //dateTimeValidation1.Operator = ExcelDataValidationOperator.greaterThanOrEqual;
+                //dateTimeValidation1.ErrorTitle = "Invalid Date";
+                //}
+                //if (dc.ColumnName.ToString().Contains("Loan Amount") || dc.ColumnName.ToString().Contains("Rate of Interest")|| dc.ColumnName.ToString().Contains("Installment Amount") || dc.ColumnName.ToString().Contains("Total Principle Paid") || dc.ColumnName.ToString().Contains("Total Interest Paid"))
+                //{
+                var columnPercentAmt = workSheet.Cells["E2:E100"];
+                workSheet.Cells["E2:E100"].Style.Numberformat.Format = "#,##0.00";
+                var decimalValidation = columnPercentAmt.DataValidation.AddCustomDataValidation();
+                decimalValidation.ShowInputMessage = true;
+                decimalValidation.ShowErrorMessage = true;
+                decimalValidation.Prompt = "Enter date here";
+                decimalValidation.PromptTitle = "Value must be a valid Decimal value";
+                decimalValidation.Formula.ExcelFormula = "ISNUMBER(" + columnPercentAmt + ")";
+                var columnPercentAmt1 = workSheet.Cells["F2:F100"];
+                workSheet.Cells["F2:F100"].Style.Numberformat.Format = "#,##0.00";
+                var decimalValidation1 = columnPercentAmt1.DataValidation.AddCustomDataValidation();
+                decimalValidation1.ShowInputMessage = true;
+                decimalValidation1.ShowErrorMessage = true;
+                decimalValidation1.Prompt = "Enter date here";
+                decimalValidation1.PromptTitle = "Value must be a valid Decimal value";
+                decimalValidation1.Formula.ExcelFormula = "ISNUMBER(" + columnPercentAmt1 + ")";
+                //var columnPercentAmt2 = workSheet.Cells["J2:J100"];
+                //workSheet.Cells["J2:J100"].Style.Numberformat.Format = "#,##0.00";
+                //var decimalValidation2 = columnPercentAmt2.DataValidation.AddCustomDataValidation();
+                //decimalValidation2.ShowInputMessage = true;
+                //decimalValidation2.ShowErrorMessage = true;
+                //decimalValidation2.Prompt = "Enter date here";
+                //decimalValidation2.PromptTitle = "Value must be a valid Decimal value";
+                //decimalValidation2.Formula.ExcelFormula = "ISNUMBER(" + columnPercentAmt2 + ")";
+                var columnPercentAmt3 = workSheet.Cells["K2:K100"];
+                workSheet.Cells["K2:K100"].Style.Numberformat.Format = "#,##0.00";
+                var decimalValidation3 = columnPercentAmt3.DataValidation.AddCustomDataValidation();
+                decimalValidation3.ShowInputMessage = true;
+                decimalValidation3.ShowErrorMessage = true;
+                decimalValidation3.Prompt = "Enter date here";
+                decimalValidation3.PromptTitle = "Value must be a valid Decimal value";
+                decimalValidation3.Formula.ExcelFormula = "ISNUMBER(" + columnPercentAmt3 + ")";
+                var columnPercentAmt4 = workSheet.Cells["L2:L100"];
+                workSheet.Cells["L2:L100"].Style.Numberformat.Format = "#,##0.00";
+                var decimalValidation4 = columnPercentAmt4.DataValidation.AddCustomDataValidation();
+                decimalValidation4.ShowInputMessage = true;
+                decimalValidation4.ShowErrorMessage = true;
+                decimalValidation4.Prompt = "Enter date here";
+                decimalValidation4.PromptTitle = "Value must be a valid Decimal value";
+                decimalValidation4.Formula.ExcelFormula = "ISNUMBER(" + columnPercentAmt4 + ")";
+                //}
+                //if (dc.ColumnName.ToString().Contains("Repayment No Of Month"))
+                //{
+              
+
+                var columnIntegerAmt = workSheet.Cells["J2:J100"];
+                workSheet.Cells["J2:J100"].Style.Numberformat.Format = "#,##0";
+                var integerValidation = columnIntegerAmt.DataValidation.AddCustomDataValidation();
+                integerValidation.ShowInputMessage = true;
+                integerValidation.ShowErrorMessage = true;
+                integerValidation.Prompt = "Enter date here";
+                integerValidation.PromptTitle = "Value must be a valid integer value";
+                integerValidation.Formula.ExcelFormula = "ISNUMBER(" + columnIntegerAmt + ")";
+                //}
+                //if (dc.ColumnName.ToString().Contains("Calculation Method"))
+                //{
+                var validationDropdown = workSheet.Cells["G2:G100"].DataValidation.AddListDataValidation();
+                validationDropdown.Formula.Values.Add("Flat");
+                validationDropdown.Formula.Values.Add("Reducing Balance");
+                validationDropdown.Prompt.FirstOrDefault();
+                validationDropdown.ShowErrorMessage = true;
+                validationDropdown.ErrorStyle = ExcelDataValidationWarningStyle.stop;
+                validationDropdown.ErrorTitle = "The value is not valid";
+                validationDropdown.Error = "Required Value. Please select any one option.";
+                //}
+                //if (dc.ColumnName.ToString().Contains("Repayment Mode"))
+                //{
+                var validationDropdown1 = workSheet.Cells["H2:H100"].DataValidation.AddListDataValidation();
+                validationDropdown1.Formula.Values.Add("EMI");
+                validationDropdown1.Formula.Values.Add("EPI");
+                validationDropdown1.Prompt.FirstOrDefault();
+
+                var validationDropdown2 = workSheet.Cells["I2:I100"].DataValidation.AddListDataValidation();
+                validationDropdown2.Formula.Values.Add("No of Month");
+                validationDropdown2.Formula.Values.Add("Installment");
+                validationDropdown2.Prompt.FirstOrDefault();
+
+                var loanTypeList = _prLoanTypeService.GetAllPRLoanTypes();
+                if(loanTypeList.Count()>0)
+                {
+                    var validationDropdown3 = workSheet.Cells["D2:D100"].DataValidation.AddListDataValidation();
+                    foreach (var laonType in loanTypeList)
+                    {
+                        validationDropdown3.Formula.Values.Add(laonType.Name);
+                    }
+                    validationDropdown3.Prompt.FirstOrDefault();
+                    validationDropdown3.ShowErrorMessage = true;
+                    validationDropdown3.ErrorStyle = ExcelDataValidationWarningStyle.stop;
+                    validationDropdown3.ErrorTitle = "The value is not valid";
+                    validationDropdown3.Error = "Required Value. Please select any one option.";
+                }
+                
+                //}
+                //    }
+                //}                  
+                // if (newDataTable.Rows.Count > 0)
+                workSheet.Cells[1, 1].LoadFromDataTable(newDataTable, true);
+            }
+            catch (Exception ex)
+            {
+                workSheet.Cells[1, 1].LoadFromDataTable(newDataTable, true);
+            }
+            //Set full Sheet Auto Fit
+            workSheet.Cells[1, 1, 2, 13].AutoFitColumns();
+
+            for (int columnIndex = 1; columnIndex < 13; columnIndex++)
+            {
+                workSheet.Column(columnIndex).AutoFit();
+            }
+            workSheet.Column(1).Width = 20;
+            workSheet.Column(1).Style.Locked = true;
+            //workSheet.Column(2).Width = 30;
+            //workSheet.Column(4).Width = 50;
+            //#region Hide and Lock Column  
+            //workSheet.Column(1).AutoFit();
+            //workSheet.Column(2).AutoFit();
+            //workSheet.Column(3).AutoFit();
+            //workSheet.Column(4).Width = 10;
+            //workSheet.Column(4).AutoFit();
+            //workSheet.Column(5).AutoFit();
+            //#endregion
+
+            #region Freeze Panel
+            workSheet.View.FreezePanes(1, 1);
+            #endregion
+
+            using (var memoryStream = new MemoryStream())
+            {
+                Response.ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                Response.AddHeader("content-disposition", "attachment;  filename=EmployeeLoanPaymentBulkEntryTemplate.xlsx");
+                excel.SaveAs(memoryStream);
+                memoryStream.WriteTo(Response.OutputStream);
+                Response.Flush();
+                Response.End();
+                Response.Clear();
+                Response.ClearContent();
+            }
+            return RedirectToAction("Create");
+        }
+        public DataTable CreateDataTable()
+        {
+            DataTable newDataTable = new DataTable();            
+            newDataTable.Columns.Add("Employee ID");
+            newDataTable.Columns.Add("Loan Payment Date");
+            newDataTable.Columns.Add("Start Date of Loan Repayment");
+            newDataTable.Columns.Add("Loan Type");
+            newDataTable.Columns.Add("Loan Amount");
+            newDataTable.Columns.Add("Rate of Interest");
+            newDataTable.Columns.Add("Calculation Method");
+            newDataTable.Columns.Add("Repayment Mode");
+            newDataTable.Columns.Add("Payment Type");
+            newDataTable.Columns.Add("Repayment No Of Month");
+            newDataTable.Columns.Add("Installment Amount");
+            newDataTable.Columns.Add("Total Principle Paid");
+            newDataTable.Columns.Add("Total Interest Paid");
+            //DataRow newRow = newDataTable.NewRow();
+            //newRow["Employee ID"] = "'001";
+            //newRow["Loan Payment Date"] = "25-Apr-2021";
+            //newRow["Start Date of Loan Repayment"] = "01-May-2021";
+            //newRow["Loan Type"] = "House Loan";
+            //newRow["Loan Amount"] = 10000;
+            //newRow["Rate of Interest"] = 4;
+            //newRow["Calculation Method"] = "Reducing Balance";
+            //newRow["Repayment Mode"] = "EPI";
+            //newRow["Repayment No Of Month"] =15;
+            //newRow["Installment Amount"] = 1566.67;
+            //newRow["Total Principle Paid"] = 0;
+            //newRow["Total Interest Paid"] = 0; 
+            //newDataTable.Rows.Add(newRow);
+            return newDataTable;
+        }
+        public static List<T> BindList<T>(System.Data.DataTable dt)
+        {
+            // Example 1:
+            // Get private fields + non properties
+            //var fields = typeof(T).GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+
+            // Example 2: Your case
+            // Get all public fields
+            var fields = typeof(T).GetFields();
+
+            List<T> lst = new List<T>();
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                // Create the object of T
+                var ob = Activator.CreateInstance<T>();
+
+                foreach (var fieldInfo in fields)
+                {
+                    foreach (DataColumn dc in dt.Columns)
+                    {
+                        // Matching the columns with fields
+                        if (fieldInfo.Name == dc.ColumnName)
+                        {
+                            // Get the value from the datatable cell
+                            object value = dr[dc.ColumnName];
+
+                            // Set the value into the object
+                            fieldInfo.SetValue(ob, value);
+                            break;
+                        }
+                    }
+                }
+
+                lst.Add(ob);
+            }
+
+            return lst;
+        }
+        private string GetExcelColumnName(int columnNumber)
+        {
+            int dividend = columnNumber;
+            string columnName = String.Empty;
+            int modulo;
+
+            while (dividend > 0)
+            {
+                modulo = (dividend - 1) % 26;
+                columnName = Convert.ToChar(65 + modulo).ToString() + columnName;
+                dividend = (int)((dividend - modulo) / 26);
+            }
+
+            return columnName;
+        }
+        #endregion
+        --------------------------------------------------------------_BulkDownload.cshtml---------------------------------------------------------------------------------------
+        
+@{
+    Layout = null;
+
+   
+}
+@using (Html.BeginForm("DownloadTemplate", "PRLoanPayment", FormMethod.Post, new { @class = "form-horizontal form-label-left ", @id = "frm" }))
+{
+<div>
+    <label class="control-label col-md-3 col-sm-3 col-xs-6" for="txtRoleName">
+
+    </label>
+    <div class="col-md-6 col-sm-6 col-xs-12" style="text-align:center">
+        <input type="submit" value="Download Excel Format" id="Submit" class="btn btn-success" />
+      
+    </div>
+</div>
+}
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
