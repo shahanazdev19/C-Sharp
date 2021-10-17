@@ -1,0 +1,602 @@
+   #region Import Employee Loan Payment Info
+        [SmartAuthorization(All = true)]
+        public ActionResult EmployeeBulkUploadToView()
+        {
+            return View("~/Areas/PR/Views/PRLoanPayment/_BulkUpload.cshtml");
+        }
+
+        [HttpPost]
+        [SmartAuthorization(All = true)]
+        public ActionResult ImportEmpLoanPaymentData(HttpPostedFileBase file)
+        {
+            if (file == null)
+            {
+                message.custom(this, "No File Found. Please select a file.");
+                return RedirectToAction("Create");
+            }
+            DataSet ds = new DataSet();
+            List<dynamic> listDynamicObjectData = new List<dynamic>();
+            if (Request.Files["file"].ContentLength > 0)
+            {
+                string fileExtension = System.IO.Path.GetExtension(Request.Files["file"].FileName);
+                if (fileExtension == ".xls" || fileExtension == ".xlsx")
+                {
+                    string fileLocation = Server.MapPath("~/Content/") + Request.Files["file"].FileName;
+                    if (System.IO.File.Exists(fileLocation))
+                    {
+                        try
+                        {
+                            System.IO.File.Delete(fileLocation);
+                        }
+                        catch (Exception ex)
+                        {
+                            // ViewBag.AliasName = _dataFilter.GetAliasName(ControllerName);
+                            message.custom(this, "Input file is used by another process. Error: " + ex.ToString());
+                            return RedirectToAction("Create");
+                        }
+                    }
+                    try
+                    {
+                        Request.Files["file"].SaveAs(fileLocation);
+                    }
+                    catch (Exception ex)
+                    {
+                        //ViewBag.AliasName = _dataFilter.GetAliasName(ControllerName);
+                        message.custom(this, "Input file is used by another process. Error: " + ex.ToString());
+                        return RedirectToAction("Create");
+                    }
+                    // ---------------------------------------------------------------------------------------------------------------------
+                    string excelConnectionString = string.Empty;
+                    excelConnectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" +
+                    fileLocation + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=2\"";
+                    //connection String for xls file format.
+                    if (fileExtension == ".xls")
+                    {
+                        excelConnectionString = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" +
+                        fileLocation + ";Extended Properties=\"Excel 8.0;HDR=Yes;IMEX=2\"";
+                        excelConnectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + fileLocation + ";Extended Properties=Excel 12.0;";
+                    }
+                    //connection String for xlsx file format.
+                    else if (fileExtension == ".xlsx")
+                    {
+                        excelConnectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" +
+                        fileLocation + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=2\"";
+                    }
+                    // Create Connection to Excel work book and add oledb namespace
+                    OleDbConnection excelConnection = new OleDbConnection(excelConnectionString);
+                    try
+                    {
+                        excelConnection.Open();
+                    }
+                    catch (Exception ex)
+                    {
+                        // message.custom(this, "Could not open connection. Error: " + ex.ToString());
+                        message.custom(this, "Could not open connection for wrong Exel format! Please check again!");
+                        return RedirectToAction("Create");
+                    }
+
+                    DataTable dt = new DataTable();
+                    dt = excelConnection.GetOleDbSchemaTable(OleDbSchemaGuid.Tables, null);
+                    if (dt == null)
+                    {
+                        return null;
+                    }
+
+                    String[] excelSheets = new String[dt.Rows.Count];
+                    int t = 0;
+                    //excel data saves in temp file here.
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        excelSheets[t] = row["TABLE_NAME"].ToString();
+                        t++;
+                    }
+                    OleDbConnection excelConnection1 = new OleDbConnection(excelConnectionString);
+                    string query = "";
+                    try
+                    {
+                        query = string.Format("Select * from [{0}]", excelSheets[0]);
+                    }
+                    catch (Exception ex)
+                    {
+                        // message.custom(this, "Could not open connection. Error: " + ex.ToString());
+                        message.custom(this, "Cannot read data from Excel for wrong Excel format! Please check again!");
+                        return RedirectToAction("Create");
+                    }
+
+                    using (OleDbDataAdapter dataAdapter = new OleDbDataAdapter(query, excelConnection1))
+                    {
+                        dataAdapter.Fill(ds);
+                    }
+                    excelConnection.Close();
+                }
+                else
+                {
+                    message.warning(this, "Only Excel File is allowed here.");
+                    return RedirectToAction("Create");
+                }
+                if (fileExtension.ToString().ToLower().Equals(".xml"))
+                {
+                    string fileLocation = Server.MapPath("~/Content/") + Request.Files["FileUpload"].FileName;
+                    if (System.IO.File.Exists(fileLocation))
+                    {
+                        try
+                        {
+                            System.IO.File.Delete(fileLocation);
+                        }
+                        catch (Exception ex)
+                        {
+                            // message.custom(this, "Input file is used by another process. Error: " + ex.ToString());
+                            message.custom(this, "Input file is used by another process.");
+                            return RedirectToAction("Create");
+                        }
+                    }
+                    try
+                    {
+                        Request.Files["FileUpload"].SaveAs(fileLocation);
+                    }
+                    catch (Exception ex)
+                    {
+                        //message.custom(this, "Input file is used by another process. Error: " + ex.ToString());
+                        message.custom(this, "Input file is used by another process.");
+                        return RedirectToAction("Create");
+                    }
+                    XmlTextReader xmlreader = new XmlTextReader(fileLocation);
+                    ds.ReadXml(xmlreader);
+                    xmlreader.Close();
+                }
+                // cheque colum validity
+                List<string> columnNameList = CreateColumnList();
+                int countHasColumn = 0;
+
+                foreach (DataColumn column in ds.Tables[0].Columns)
+                    if (columnNameList.Contains(column.ColumnName)) countHasColumn++;
+                if (countHasColumn != columnNameList.Count())
+                {
+                    message.custom(this, "File information does not match with expected information. Please provide correct information. ");
+                    return RedirectToAction("Create");
+                }
+                //------------------
+                //StringBuilder strBlder = new StringBuilder();
+
+                //List<string> employeeIdList = new List<string>();
+                //foreach (DataRow empIdRow in ds.Tables[0].Rows)
+                //{
+                //    employeeIdList.Add(empIdRow["Employee ID"].ToString());
+
+                //}                 
+                if (ds.Tables[0].Rows.Count == 0)
+                {
+                    message.custom(this, "No Data Found from Upload File.");
+                    return RedirectToAction("Create");
+                }
+
+                #region Excel Validation Work
+
+                StringBuilder ErrorMessage = new StringBuilder();
+                string emplist = string.Empty;
+                string inactiveEmplist = string.Empty;
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    for (int columnIndex = 1; columnIndex < (ds.Tables[0].Columns.Count - 1); columnIndex++)
+                    {
+                        int rowIndexs = Convert.ToInt16(ds.Tables[0].Rows.IndexOf((row))) + 2;
+                        if (!string.IsNullOrEmpty(row["Employee ID"].ToString()))
+                        {
+                            if (columnIndex == 2 && row["Loan Payment Date"].ToString() == "")
+                                ErrorMessage.Append("<br>" + "Please enter Loan Payment Date in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                            if (columnIndex == 3 && row["Start Date of Loan Repayment"].ToString() == "")
+                                ErrorMessage.Append("<br>" + "Please enter Start Date of Loan Repayment in cell[" + rowIndexs + "," + (columnIndex) + "]");
+
+
+                            string IncAmountMode = row["Loan Type"].ToString();
+                            if (columnIndex == 4)
+                            {
+                                if (IncAmountMode == "")
+                                {
+                                    ErrorMessage.Append("<br>" + "Please enter Loan Type in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                }                                
+                            }
+                            string loanAmount = row["Loan Amount"].ToString();
+                            if (columnIndex == 5 && loanAmount == "")
+                                ErrorMessage.Append("<br>" + "Please enter Loan Amount in cell[" + rowIndexs + "," + (columnIndex) + "]");
+
+                            decimal d = -1;
+                            if (columnIndex == 5 && row["Loan Amount"].ToString() != null && !decimal.TryParse(row["Loan Amount"].ToString(), out d))
+                            {
+                                ErrorMessage.Append("<br>" + "Please enter decimal value for Loan Amount in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                            }
+
+                            if (columnIndex == 5 && row["Loan Amount"].ToString() != null && decimal.TryParse(row["Loan Amount"].ToString(), out d) && d <= 0)
+                            {
+                                ErrorMessage.Append("<br>" + "Please enter greater than 0 value for Loan Amount in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                            }                                                     
+                            var _rateOfInterest = row["Rate of Interest"].ToString();
+                            if (columnIndex == 6)
+                            {
+                                if (string.IsNullOrEmpty(_rateOfInterest))
+                                {
+                                    ErrorMessage.Append("<br>" + "Please enter Rate of Interest in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                }
+                                else
+                                {
+                                    decimal d1 = -1;
+                                    if (columnIndex == 6 && row["Rate of Interest"].ToString() != null && !decimal.TryParse(row["Rate of Interest"].ToString(), out d1))
+                                    {
+                                        ErrorMessage.Append("<br>" + "Please enter decimal value for Rate of Interest in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                    }
+
+                                    if (columnIndex == 6 && row["Rate of Interest"].ToString() != null && decimal.TryParse(row["Rate of Interest"].ToString(), out d1) && d1 <= 0)
+                                    {
+                                        ErrorMessage.Append("<br>" + "Please enter greater than 0 value for Rate of Interest in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                    }                                   
+                                }
+                            }
+
+                            string stringCalculationMethod = row["Calculation Method"].ToString();
+                            if (columnIndex == 7)
+                            {
+                                if (string.IsNullOrEmpty(stringCalculationMethod))
+                                {
+                                    ErrorMessage.Append("<br>" + "Please enter Calculation Method in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                }
+                                if (!string.IsNullOrEmpty(stringCalculationMethod) && !(stringCalculationMethod.ToLower() == "flat" || stringCalculationMethod.ToLower() == "reducing balance"))
+                                {
+                                    ErrorMessage.Append("<br>" + "Please enter Calculation Method value in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                }
+                            }
+                            string stringRepaymentMode = row["Repayment Mode"].ToString();
+                            //if (columnIndex == 8)
+                            //{
+                            //    if (string.IsNullOrEmpty(stringRepaymentMode))
+                            //    {
+                            //        ErrorMessage.Append("<br>" + "Please enter Repayment Mode in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                            //    }
+                            //    if (!string.IsNullOrEmpty(stringRepaymentMode) && !(stringRepaymentMode.ToLower() == "emi" || stringRepaymentMode.ToLower() == "epi"))
+                            //    {
+                            //        ErrorMessage.Append("<br>" + "Please enter Repayment Mode value in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                            //    }
+                            //}
+                            
+
+                            string stringRepaymentNoOfMonth = row["Repayment No Of Month"].ToString();
+                            if (columnIndex == 9)
+                            {
+                                string stringPaymentType = row["Payment Type"].ToString();
+                                if (!string.IsNullOrEmpty(stringPaymentType) && stringPaymentType == "No of Month" && string.IsNullOrEmpty(stringRepaymentNoOfMonth))
+                                {
+                                    ErrorMessage.Append("<br>" + "Please enter Repayment No Of Month in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                }
+                                //if (string.IsNullOrEmpty(stringRepaymentNoOfMonth))
+                                //{
+                                //    ErrorMessage.Append("<br>" + "Please enter Repayment No Of Month in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //}                               
+                            }  
+                            string stringInstallmentAmount = row["Installment Amount"].ToString();
+                            if (columnIndex == 10)
+                            {
+                                string stringPaymentType = row["Payment Type"].ToString();
+                                if (!string.IsNullOrEmpty(stringPaymentType) && stringPaymentType == "Installment" && string.IsNullOrEmpty(stringInstallmentAmount))
+                                {
+                                    ErrorMessage.Append("<br>" + "Please enter Installment Amount in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                }
+                                //    if (string.IsNullOrEmpty(stringInstallmentAmount))
+                                //    {
+                                //        ErrorMessage.Append("<br>" + "Please enter Installment Amount in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //    }
+                                //    decimal d2= -1;
+                                //    if (columnIndex == 11 && row["Installment Amount"].ToString() != null && !decimal.TryParse(row["Installment Amount"].ToString(), out d2))
+                                //    {
+                                //        ErrorMessage.Append("<br>" + "Please enter decimal value as Installment Amount in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //    }
+
+                                //    if (columnIndex == 11 && row["Installment Amount"].ToString() != null && decimal.TryParse(row["Installment Amount"].ToString(), out d2) && d2 <= 0)
+                                //    {
+                                //        ErrorMessage.Append("<br>" + "Please enter greater than 0 value as Installment Amount in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //    }                               
+                            }
+                            string stringTotalPrinciplePaid = row["Total Principle Paid"].ToString();
+                            if (columnIndex == 11)
+                            {
+                                //if (string.IsNullOrEmpty(stringTotalPrinciplePaid))
+                                //{
+                                //    ErrorMessage.Append("<br>" + "Please enter Total Principle Paid in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //}
+                                //decimal d2 = -1;
+                                //if (columnIndex == 11 && row["Total Principle Paid"].ToString() != null && !decimal.TryParse(row["Total Principle Paid"].ToString(), out d2))
+                                //{
+                                //    ErrorMessage.Append("<br>" + "Please enter decimal value in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //}
+
+                                //if (columnIndex == 11 && row["Total Principle Paid"].ToString() != null && decimal.TryParse(row["Total Principle Paid"].ToString(), out d2) && d2 <= 0)
+                                //{
+                                //    ErrorMessage.Append("<br>" + "Please enter greater than 0 value in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //}
+                            }
+                            string stringTotalInterestPaid = row["Total Interest Paid"].ToString();
+                            if (columnIndex == 12)
+                            {
+                                //if (string.IsNullOrEmpty(stringTotalInterestPaid))
+                                //{
+                                //    ErrorMessage.Append("<br>" + "Please enter Total Interest Paid in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //}
+                                //decimal d2 = -1;
+                                //if (columnIndex == 11 && row["Total Interest Paid"].ToString() != null && !decimal.TryParse(row["Total Interest Paid"].ToString(), out d2))
+                                //{
+                                //    ErrorMessage.Append("<br>" + "Please enter decimal value in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //}
+
+                                //if (columnIndex == 11 && row["Total Interest Paid"].ToString() != null && decimal.TryParse(row["Total Interest Paid"].ToString(), out d2) && d2 <= 0)
+                                //{
+                                //    ErrorMessage.Append("<br>" + "Please enter greater than 0 value in cell[" + rowIndexs + "," + (columnIndex) + "]");
+                                //}
+                            }
+                            var emp = _employeeService.GetEmpIdByEmployeeId(row["Employee ID"].ToString(), SmartSession.CompanyId);
+                            if (columnIndex == 1 && emp == null)
+                            {
+                                if (string.IsNullOrEmpty(emplist))
+                                {
+                                    emplist += row["Employee ID"].ToString() + " in cell[" + rowIndexs + "," + (columnIndex) + "]";
+                                }
+                                else
+                                {
+                                    emplist += ", " + row["Employee ID"].ToString() + " in cell[" + rowIndexs + "," + (columnIndex) + "]";
+                                }
+                            }
+                            if (columnIndex == 1 && emp != null && emp.IsActive == false)
+                            {
+                                if (string.IsNullOrEmpty(inactiveEmplist))
+                                {
+                                    inactiveEmplist += row["Employee ID"].ToString() + " in cell[" + rowIndexs + "," + (columnIndex) + "]";
+                                }
+                                else
+                                {
+                                    inactiveEmplist += ", " + row["Employee ID"].ToString() + " in cell[" + rowIndexs + "," + (columnIndex) + "]";
+                                }
+                            }
+                        }
+                    }
+                }
+                if (emplist.Length > 0)
+                {
+                    emplist = "These employees- " + emplist + " has no employee information. Plese provide correct employee information.";
+
+                    if (string.IsNullOrEmpty(ErrorMessage.ToString()))
+                    {
+                        ErrorMessage.Append(emplist);
+                    }
+                    else
+                    {
+                        StringBuilder mainMessage = new StringBuilder();
+                        mainMessage.Append(emplist + "<br>" + ErrorMessage);
+                        ErrorMessage = mainMessage;
+                    }
+                }
+                if (inactiveEmplist.Length > 0)
+                {
+                    inactiveEmplist = "These employees - " + inactiveEmplist + " is not active employee. Plese exclude them from the excel.";
+
+                    if (string.IsNullOrEmpty(ErrorMessage.ToString()))
+                    {
+                        ErrorMessage.Append(inactiveEmplist);
+                    }
+                    else
+                    {
+                        StringBuilder mainMessage = new StringBuilder();
+                        mainMessage.Append(inactiveEmplist + "<br>" + ErrorMessage);
+                        ErrorMessage = mainMessage;
+                    }
+                }
+
+                #region Duplicate Employee Id Check
+                string duplicateEmployeeId = string.Empty;
+                var allEmpIdList = ds.Tables[0].AsEnumerable()
+                    .Select(dataRow => new
+                    {
+                        EmployeeID = dataRow.Field<string>("Employee ID")
+                    }).Where(m => !string.IsNullOrEmpty(m.EmployeeID)).ToList();
+
+                if (allEmpIdList.Count() > 1)
+                {
+                    var duplicateIDLists = allEmpIdList.GroupBy(m => m.EmployeeID).Where(g => g.Count() > 1).Select(y => new { EmployeeId = y.Key }).ToList();
+                    if (duplicateIDLists.Count() > 0)
+                    {
+                        foreach (DataRow row in ds.Tables[0].Rows)
+                        {
+                            for (int columnIndex = 1; columnIndex < (ds.Tables[0].Columns.Count - 1); columnIndex++)
+                            {
+                                int rowIndexs = Convert.ToInt16(ds.Tables[0].Rows.IndexOf((row))) + 2;
+                                if (columnIndex == 2 && row["Employee ID"].ToString() != "" && duplicateIDLists.Any(m => m.EmployeeId == row["Employee ID"].ToString()))
+                                {
+                                    if (string.IsNullOrEmpty(duplicateEmployeeId))
+                                    {
+                                        duplicateEmployeeId += row["Employee ID"].ToString() + " in cell[" + rowIndexs + "," + (columnIndex) + "]";
+                                    }
+                                    else
+                                    {
+                                        duplicateEmployeeId += ", " + row["Employee ID"].ToString() + " in cell[" + rowIndexs + "," + (columnIndex) + "]";
+                                    }
+                                }
+                            }
+                        }
+
+                        if (duplicateEmployeeId.Length > 0)
+                        {
+                            duplicateEmployeeId = "These employees Id - " + duplicateEmployeeId + " has multiple entry. Plese correct the information.";
+
+                            if (string.IsNullOrEmpty(ErrorMessage.ToString()))
+                            {
+                                ErrorMessage.Append(duplicateEmployeeId);
+                            }
+                            else
+                            {
+                                StringBuilder mainMessage = new StringBuilder();
+                                mainMessage.Append(duplicateEmployeeId + "<br>" + ErrorMessage);
+                                ErrorMessage = mainMessage;
+                            }
+
+                        }
+                    }
+
+                }
+                #endregion
+
+                if (ErrorMessage.Length > 0)
+                {
+                    message.custom(this, ErrorMessage.ToString());
+                    return RedirectToAction("Create");
+                }
+                #endregion
+
+                #region data already exist check validation
+                StringBuilder strBuilderEmpExists = new StringBuilder();
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    if (!string.IsNullOrEmpty(row["Employee ID"].ToString()))
+                    {
+                        string loanTypeName =row["Loan Type"].ToString();                        
+                        var empInfo = _employeeService.GetEmployeeDetails(row["Employee ID"].ToString());
+                        if (empInfo != null)
+                        {
+                            var loanType = _prLoanTypeService.GetAllPRLoanTypes().Where(m => m.Name.Contains(loanTypeName)).FirstOrDefault();
+                            var loanPaymentDetails = _prLoanPaymentService.GetEmployeeLoanDetails(empInfo.BranchId.Value, empInfo.Id, loanType.Id);// _promotionIncrementService.GetPromotionIncrementDetails(empInfo.Id, effectiveDate);
+                            if (loanPaymentDetails != null && loanPaymentDetails.Count()>0)
+                            {
+                                strBuilderEmpExists.Append("<br>" + (empInfo.EmployeeId + "- " + empInfo.FirstName + " " + empInfo.MiddleName + " " + empInfo.LastName) + ",");
+                            }
+                        }
+                    }
+                }
+                if (strBuilderEmpExists.Length > 0)
+                {
+                    string msg = @"These employee's loan payment data already inserted " + strBuilderEmpExists + "<br> Please remove them from excel sheet.";
+                    message.custom(this, msg);
+                    return RedirectToAction("Create");
+                }
+                #endregion
+                string fullMessage = string.Empty;
+                int rowIndex = 0;
+                PRLoanPayment loanPayment = new PRLoanPayment();
+                List<PRLoanPayment> listLoanPayment = new List<PRLoanPayment>();
+                foreach (DataRow row in ds.Tables[0].Rows)
+                {
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(row["Employee ID"].ToString()))
+                        {
+                            var emp = _employeeService.GetEmpIdByEmployeeId(row["Employee ID"].ToString(), SmartSession.CompanyId);
+                            if (emp != null && emp.Id > 0)// get employee by PIN
+                            {
+                                loanPayment = new PRLoanPayment();
+                                loanPayment.DateofLoanPayment = Convert.ToDateTime(row["Loan Payment Date"].ToString());
+                                loanPayment.StartDateOfLoanRepayment = Convert.ToDateTime(row["Start Date of Loan Repayment"].ToString());
+                                string loanTypeName = row["Loan Type"].ToString();
+                                var loanType = _prLoanTypeService.GetAllPRLoanTypes().Where(m => m.Name.Contains(loanTypeName)).FirstOrDefault();
+                                loanPayment.LoanTypeId = loanType.Id;
+                                loanPayment.LoanAmount = Convert.ToDecimal(row["Loan Amount"].ToString());
+                                loanPayment.RateofInterest = Convert.ToDecimal(row["Rate of Interest"].ToString());
+                                loanPayment.CalculationMethod = string.IsNullOrEmpty(row["Calculation Method"].ToString()) ? "" : row["Calculation Method"].ToString();
+                                loanPayment.EmployeeId = emp.Id;
+                                loanPayment.RepaymentMode = row["Repayment Mode"].ToString();
+                                loanPayment.PaymentType= row["Payment Type"].ToString();
+                                loanPayment.RepaymentInNoofMonth = (row["Repayment No Of Month"].ToString() == null || row["Repayment No Of Month"].ToString() == "") ? 0 : Convert.ToInt16(row["Repayment No Of Month"].ToString());
+                                loanPayment.MonthlyInstallment = (row["Installment Amount"].ToString() == null || row["Installment Amount"].ToString() == "") ? 0 : Convert.ToDecimal(row["Installment Amount"].ToString());
+                                //var val = row["Total Principle Paid"].ToString();
+                                //var val1 = row["Total Interest Paid"].ToString();
+                                loanPayment.TotalPrinciplePaid =(row["Total Principle Paid"].ToString()==null|| row["Total Principle Paid"].ToString() =="")? 0: Convert.ToDecimal(row["Total Principle Paid"].ToString());
+                                loanPayment.TotalInterestPaid =(row["Total Interest Paid"].ToString()==null|| row["Total Interest Paid"].ToString() =="")? 0: Convert.ToDecimal(row["Total Interest Paid"].ToString());
+                                loanPayment.InstallmentMode = "Fixed";
+                                loanPayment.CompanyId = SmartSession.CompanyId;                               
+                                listLoanPayment.Add(loanPayment);
+                            }
+                        }
+                        rowIndex++;
+                    }
+                    catch (Exception ex)
+                    {
+                        message.custom(this, "File information does not match with expected information.");
+                        return RedirectToAction("Create");
+                    }
+                }
+                try
+                {
+                    if (listLoanPayment.Count() > 0)
+                    {
+
+                        var savingLists = listLoanPayment.Where(m => m.LoanTypeId > 0 && m.LoanAmount > 0).ToList(); //Filter employee those who have designation
+
+                        if (_prLoanPaymentService.AddMultiplePRLoanPayment(savingLists))
+                        {
+                            foreach (var loanPay in savingLists)
+                            {
+                                var loanType = _prLoanTypeService.GetPRLoanTypeDetails(loanPay.LoanTypeId);
+                                loanPay.LoanId=loanPay.Id.ToString()+"-"+ loanType.Name;
+                                _prLoanPaymentService.UpdatePRLoanPayment(loanPay);
+                            }
+                                   
+                            message.save(this);
+                            return RedirectToAction("Index", new { page = 1, size = 10 });
+                        }
+                        else
+                        {
+                            message.custom(this, "Error occured. Loan Payment not saved.");
+                            return RedirectToAction("Create");
+                        }
+                    }
+                    else
+                    {
+                        message.custom(this, "No Loan Payment found to save from Exel sheet for employees. Please insert correct data in excel sheet.");
+                        return RedirectToAction("Create");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    message.custom(this, "Sorry!! Exel is in wrong format! Please check!");
+                    return RedirectToAction("Create");
+                }
+            }
+            message.custom(this, "Cannot read information from the uploaded file.");
+            return RedirectToAction("Create");
+        }
+        private List<string> CreateColumnList()
+        {
+            List<string> columnNameList = new List<string>();           
+            columnNameList.Add("Employee ID");
+            columnNameList.Add("Loan Payment Date");
+            columnNameList.Add("Start Date of Loan Repayment");
+            columnNameList.Add("Loan Type");
+            columnNameList.Add("Loan Amount");
+            columnNameList.Add("Rate of Interest");
+            columnNameList.Add("Calculation Method");
+            columnNameList.Add("Repayment Mode");
+            columnNameList.Add("Repayment No Of Month");
+            columnNameList.Add("Installment Amount");
+            columnNameList.Add("Total Principle Paid");
+            columnNameList.Add("Total Interest Paid");
+            return columnNameList;
+        }
+
+        #endregion
+        
+        -----------------------------------------------------------------------_BulkUpload.cshtml------------------------------------------------------------------------------
+        
+@{
+    Layout = null;
+    
+}
+
+@using (Html.BeginForm("ImportEmpLoanPaymentData", "PRLoanPayment", FormMethod.Post, new { enctype = "multipart/form-data" }))
+{
+    <div>
+        @*<label class="control-label col-md-3 col-sm-3 col-xs-6" for="txtRoleName">
+            Upload Excel
+        </label>*@
+        <div class="col-md-4 col-sm-4 col-xs-8" style="text-align:center">
+            <input type="file" accept=".xlsx, .xls" id="FileUpload" name="file" class="" onchange="checkfile(this);" />
+        </div>
+        <div class="col-md-2 col-sm-2 col-xs-4" style="text-align:left">
+            <input type="submit" value="Upload" class="btn btn-primary" />
+        </div>
+    </div> 
+}
+
+        
