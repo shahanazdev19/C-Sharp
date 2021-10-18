@@ -1,0 +1,42 @@
+Payroll Feature Flow - 
+
+Policy Configuration - 
+
+Policy Configuration - Tax Policy , Payroll Policy , Bonus Policy 
+
+Arrear Process
+1. Run Salary Process
+2. Add Promotion Increament For Previous Month
+3. Run Arrear Process For Currrent Month
+4. Run Salary Process Current Month
+5. View Salary Sheet and PaySlip
+
+Bonus Process
+1. Add Bonus Type
+2. Add Bonus
+3. Add Bonus Configuration For Current Month 
+4. Run Bonus Process
+5. Run Salary Process
+6. View Bonus Sheet,Salary Sheet and PaySlip
+
+Manual Tax Process
+1. Add Employee Manual Tax
+2. Run Salary Process
+3. Add Tax Payment
+4. View Tax Certificate,Salary Sheet and PaySlip
+
+Loan Process-
+1. Add Loan Type
+2. Add Loan Configuration
+3. Loan Payment
+4. Run Salary Process
+5. View Salary Sheet and PaySlip
+
+Other Allowance Process-
+1. Add OtherAllowance Deduction Head
+2. Add Salary Component
+3. Add Grade Scale
+4. Run EMployee Other Allowance Process
+5. Run Salary Process
+6. View Salary Sheet and PaySlip
+
