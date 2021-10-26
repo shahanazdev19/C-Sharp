@@ -1,0 +1,615 @@
+View jquery script-------------------------
+-------------------------------------------------------------------------------------------
+@model PagedList.IPagedList<Smart.Model.Models.PR.PaymentProcess>
+@using PagedList.Mvc
+@using System.Globalization
+@using Smart.Web.Helpers
+
+@{
+    ViewBag.Title = ViewBag.TitleName + " - Index";
+    if (Request.IsAjaxRequest())
+    {
+        Layout = null;
+    }
+    else
+    {
+        Layout = "~/Views/Shared/_MasterLayout.cshtml";
+    }
+    int size = 10;
+    
+    if (ViewBag.size != null)
+    {
+        size = ViewBag.size;
+    };
+    int Nopage = 1;
+    if (ViewBag.page != null)
+    {
+        Nopage = ViewBag.page;
+    };
+    int row = size * Nopage;
+    row = row - size;
+    string dateFormat = SmartSession.DateTimeFormat;
+
+    var userList = (List<Smart.Model.TOs.TOUserList>)ViewBag.UserList;
+    string dateFormate = Smart.Web.Helpers.SmartSession.DateTimeFormat;
+
+
+}
+<style>
+    .tfb {
+        border: 1px solid #ddd;
+        text-align: left;
+        padding: 5px;
+    }
+
+    .txtRightAlign {
+        text-align: right;
+        padding-right: 20px;
+    }
+
+    .empImage {
+        width: 25px;
+        height: 25px;
+    }
+
+    .upload {
+        float: right;
+    }
+
+    .test {
+        color: aqua;
+    }
+
+    .masterpass {
+        max-width: 25%;
+        padding-bottom: 2px;
+    }
+
+    .masterpassbutton {
+        margin-top: 5px;
+        padding-left: 30px;
+        padding-right: 35px;
+    }
+
+    div#example_wrapper > div.dataTables_length41 {
+        top: -1%;
+    }
+
+    table.dataTable tbody td .breakWord {
+        word-break: break-word;
+        vertical-align: top;
+    }
+    /* width */
+    ::-webkit-scrollbar {
+        width: 10px;
+        padding-right: -10px;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    /* Handle */
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+    }
+
+        /* Handle on hover */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+    .dataTables_scrollBody {
+        overflow: hidden !important;
+    }
+
+        .dataTables_scrollBody:hover {
+            overflow: scroll !important;
+        }
+
+    .pagination {
+        margin-top: 45px !important;
+    }
+
+    table {
+        margin: 0 auto;
+        width: 75%;
+        clear: both;
+        border-collapse: collapse;
+        /*table-layout: fixed;*/
+        margin-bottom: 0px !important;
+    }
+</style>
+
+<style>
+    .dl-horizontal dt {
+        width: 250px;
+    }
+
+    .dl-horizontal dd {
+        margin-left: 300px;
+    }
+
+    .x_content {
+        padding: 5px 5px 6px;
+    }
+
+    .dl-horizontal dt {
+        width: 225px;
+    }
+
+    .dl-horizontal dd {
+        margin-left: 235px;
+    }
+
+    div#example_wrapper > div.dataTables_length41 {
+        top: -2%;
+        /* z-index: 999; */
+    }
+
+    .search-table-outter {
+        MARGIN-TOP: 2%;
+        MARGIN-BOTTOM: 2%;
+    }
+
+    .search-table-outter {
+        overflow-x: scroll;
+        max-width: 100%;
+    }
+
+    ul.bar_tabs {
+        margin: 21px 0 3px !important;
+        background: none !important;
+        margin-left: 56% !important;
+        height: 0px !important;
+        border-bottom: 0px solid #E6E9ED !important;
+    }
+
+    nav-tabs {
+        border-bottom: 0px solid #ddd;
+    }
+</style>
+
+<div class="row">
+    <div class="col-md-12 col-sm-12 col-xs-12">
+        <div class="x_panel">
+            <div class="x_title">
+                <h2><i class="fa fa-table" style=" font-size 26px; margin-right:10px"> </i>@ViewBag.TitleName </h2>
+                @Html.ActionLink("Add New", "Create", null, new { @class = "btn btn-info pull-right" })
+                <div class="clearfix"></div>
+            </div>
+            <div class="x_content">
+                <div class="row" style="margin-bottom:10px">
+                    <div class="col-sm-12">
+                        @using (Ajax.BeginForm("Index", "PaymentProcess", FormMethod.Get, new AjaxOptions
+                        {
+                            UpdateTargetId = "BodyContainer",
+                            InsertionMode = InsertionMode.Replace
+                        }))
+                        {
+                            <div class="row">
+                                <table class="tableFilter" style="margin-left:15px">
+                                    <tr>
+                                        <td class="tfb" style="width:5%">
+                                            @*<span style="font-weight:bold;">Page Size</span><br />*@
+                                            <i class="fa fa-filter" style="margin-right: 5px; color: #aeaeae; font-size: 22px; padding-top: 5px;  "></i>
+                                            @Html.TextBox("size", ViewBag.size as string, new { @type = "number", @min = "10", @max = "100", @class = "", @style = "width:70px;height:30px;margin-bottom:10px;border: 1px solid #DDE2E8;" })
+                                        </td>
+                                        <td colspan="2" class="tfb" style="width:50%">
+                                            @Html.DropDownList("Company", null, null, new
+                                       {
+                                           @class = "default form-control",
+                                           style = "",
+                                           @id = "ddlCompany"
+                                       })
+                                        </td>
+
+                                        <td class="tfb" style="width:25%">
+                                            @*<span>Name</span><br />*@
+                                            @Html.TextBox("Name", ViewBag.Name as string, new { @class = "form-control col-md-12 col-xs-12", placeholder = "Process Name" })
+                                        </td>
+
+                                        <td class="tfb" style="width:10%;">
+                                            <center><button type="submit" class="btn btn-sm btn-info"><i class="fa fa-search-plus" style="margin-right:5px; color:#808080;"></i>Serach</button></center>
+                                            @*style="background-color: #e6e6e6; "*@
+                                        </td>
+                                    </tr>
+                                </table>
+
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div id="example_wrapper" class="dataTables_wrapper" role="grid" style="overflow: auto;">
+                    <table id="dtTable" class="table table-striped responsive-utilities jambo_table dataTable" aria-describedby="example_info">
+                        <thead>
+                            <tr class="headings">
+                                <th style="width:0%">
+                                    #
+                                </th>
+                                <th style="width:20% !important">
+                                    Process
+                                </th>
+                                <th style="width:50% !important">
+                                    Entity
+                                </th>
+                                <th style="width:50% !important">
+                                    Year
+                                </th>
+                                <th style="width:50% !important">
+                                    Month
+                                </th>
+                                <th style="width:50% !important">
+                                    Payment Date
+                                </th>
+                                <th style="width:50% !important">
+                                    Voucher Post Date
+                                </th>
+                                <th style="width:20%">
+                                    Voucher Post Status
+                                </th>
+                                <th> Processed By </th>
+                                <th> Processed On </th>
+                                <th class=" no-link last" style="width:20% !important">
+                                    <span class="nobr">Action</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model != null)
+                            {
+                                foreach (var item in Model.Select((x, i) => new { Data = x, Index = i }))
+                                {
+                                    row++;
+                                    <tr>
+                                        <td class=" ">@row</td>
+                                        <td class=" ">@item.Data.ProcessName</td>
+                                        <td class=" ">@(item.Data.Company.CompanyName + " [" + item.Data.Company.CompanyCode + "]")</td>
+                                        <td class=" ">@item.Data.Year</td>
+                                        <td class=" ">@CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(item.Data.Month)</td>
+                                        <td>@item.Data.PaymentDate.ToString(dateFormat)</td>
+                                        <td class=" ">@(item.Data.VoucherPostDate.HasValue ? item.Data.VoucherPostDate.Value.ToString(dateFormate) : "")</td>
+                                        @if (item.Data.IsVoucherPosted)
+                                        {
+                                            <td style="color: green;width:20% !important">Locked</td>
+                                        }
+                                        else
+                                        {
+                                            if (item.Data.VoucherPostPercentage == 0)
+                                            {
+                                                <td style="color: orange;width:20% !important">Pending</td>
+                                            }
+                                            else
+                                            {
+                                                <td style="color: orange;width:20% !important">In Progress</td> @*<span style="color:crimson">(@item.Data.VoucherPostPercentage.ToString("0.##")%)</span>*@
+                                            }
+                                        }
+
+                                        <td class=" ">
+                                            @{
+                                                var Auser = userList.Where(a => a.UserId == item.Data.AddedBy).FirstOrDefault();
+                                                if (Auser != null)
+                                                {
+                                                    @Auser.FullName
+                                                }
+                                            }
+
+                                        </td>
+                                        <td class=" ">@(item.Data.AddedOn.HasValue ? item.Data.AddedOn.Value.ToString(dateFormate) + " " + item.Data.AddedOn.Value.ToShortTimeString() : "")</td>
+
+
+                                        <td>
+                                            @if (!item.Data.IsVoucherPosted)
+                                            {
+                                                @Html.ActionLink("Post Voucher", "PostPaymentVoucher", new { id = item.Data.Id }, new { @class = "btn btn-info btn-sm voucherPosting", @title = "Post Voucher" }) <span>|</span>
+                                            }  @Html.ActionLink("View", "PaymentView", new { id = item.Data.Id }, new { @class = "btn btn-success btn-sm ", @title = "View" })
+                                            @if (item.Data.IsVoucherPosted)
+                                            {
+                                                <span>|</span> @Html.ActionLink("Get Post Status", "GetVoucherPostStatus", new { id = item.Data.Id }, new { @class = "btn btn-primary btn-sm", @title = "Check Status", @target = "_blank" })
+                                            }
+
+                                            @if (!item.Data.IsVoucherPosted)
+                                            {
+                                                if (item.Data.VoucherPostPercentage == 0)
+                                                {
+                                                    <span>|</span>
+                                                    @Html.ActionLink("Delete", "Delete", new { id = item.Data.Id }, new { @class = "btn btn-danger btn-sm", @title = "Delete", @onclick = "return confirm('Are you sure to delete this item?');" })
+                                                }
+                                            }
+                                        </td>
+
+                                    </tr>
+
+                                                    }
+                                                }
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+            @Html.PagedListPager(Model, page => Url.Action("Index",
+           new
+           {
+               page,
+               Company = ViewBag.Company,
+               Name = ViewBag.Name,
+               size = ViewBag.size
+           }),
+           PagedListRenderOptions.EnableUnobtrusiveAjaxReplacing(new AjaxOptions()
+           {
+               HttpMethod = "GET",
+               UpdateTargetId = "BodyContainer"
+           })
+           )
+            <div id="PopUpDetailsResult"></div>
+            <div id="modalDetailsGlobal" class="modal fade bs-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="mySmallModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg" style="width:95%;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="modalDetailsView"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+
+
+
+    </div>
+    <br />
+    <br />
+    <br />
+
+    <div class="modal fade in" id="mod-paymentLocalProgress" data-backdrop="static" data-keyboard="false" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content" style="max-height:175px!important">
+                <div class="modal-header">
+                    Please wait until the current process is finished
+                </div>
+                <div class="modal-body" id="divprogressbar">
+                    <div class="text-center">
+                        <div id="result" style="font-size: 1.1em; padding-bottom: 5px">
+                            <p id="progressBarParagraph"></p>
+                        </div>
+                        <div style="width: 30%; margin: 0 auto; display:none;">
+                            <div id="progressbar" style="width: 300px; height: 15px"></div>
+                            <br />
+                        </div>
+                        <div id="ProgressStripe" class="progress progress-striped active" style="position:relative; top:10px; width:100%;">
+                            <div id="ProgressMessage" class="progress-bar progress-bar-info" style="width: 100%; border:none;"></div>
+                        </div>
+                        <br />
+                    </div>
+                </div>
+            </div>
+            <!-- /.modal-content -->
+        </div>
+        <!-- /.modal-dialog -->
+    </div>
+
+    <div id="divMainModal" class="modal fade bd-example-modal-lg" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="myLargeModalLabel">Employee Monthly Salary</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div id="divModallg" class="modal-body">
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+@section Scripts {
+    @*@Scripts.Render("~/bundles/jqueryval")*@
+    <script type="text/javascript">
+
+        $(document).ready(function () {
+            var table = $('#example2').DataTable({
+                scrollY: "400px",
+                scrollX: true,
+                bLengthChange: true,
+                "iDisplayLength": -1,
+                paging: true,
+                fixedColumns: {
+                    leftColumns: 2,
+                    rightColumns: 1
+                }
+            });
+            $(document).on('click', '.modalViewGlobal', function () {
+                var id = $(this).attr('id');
+                var url = $(this).attr('mytag');
+                //var baseUrl = '@Url.Content("~")';
+
+                var getUrl = window.location;
+                var baseUrl = getUrl.protocol + "//" + getUrl.host + "/";
+                if (getUrl.host == "smartenterprisezone.com") {
+                    baseUrl = baseUrl + getUrl.pathname.split('/')[1] + '/';
+                }
+                if (getUrl.host == "www.smartenterprisezone.com") {
+                    baseUrl = baseUrl + getUrl.pathname.split('/')[1] + '/';
+                }
+
+                $.ajax({
+                    url: baseUrl + url,
+                    data: {}, //parameters go here in object literal form
+                    type: 'GET',
+                    datatype: 'HTML',
+                    success: function (data) {
+                        $('#modalDetailsView').html(data);
+                        $('#modalDetailsGlobal').modal('show');
+                    },
+                    error: function () {
+                        var msg = '<div class="divPopup">Somthing Bad Happend<div><a id="closePopup" style="cursor: pointer;font-size:15px" onclick="closePopupBox()">Close</a>';
+                        $('#PopUpDetailsResult').html(msg);
+                    }
+                });
+            });
+
+
+        });
+
+
+        $(function () {
+            var progress = $.connection.realhub;
+
+            console.log(progress);
+            progress.client.AddProgress = function (counter, total, percentage) {
+                var message = 'Process in progress... ' + percentage + ' (' + counter + '/' + total + ')';
+                if (counter == 0)
+                {
+                    message = 'Process in progress...';
+                }
+                ProgressBarModal("show", message);
+
+                $('#ProgressMessage').width(percentage);
+                if (percentage == "100%") {
+                    ProgressBarModal();
+                }
+            };
+            $.connection.hub.start().done(function () {
+                var connectionId = $.connection.hub.id;
+                console.log(connectionId);
+            });
+        });
+        function ProgressBarModal(showHide) {
+
+            if (showHide === 'show') {
+                $('#mod-paymentLocalProgress').modal('show');
+                if (arguments.length >= 2) {
+                    $('#progressBarParagraph').text(arguments[1]);
+                } else {
+                    $('#progressBarParagraph').text('U tijeku...');
+                }
+
+                window.progressBarActive = true;
+
+            } else {
+                $('#mod-paymentLocalProgress').modal('hide');
+                window.progressBarActive = false;
+            }
+        }
+        $('.voucherPosting').click(function (event) {
+
+            $(".ajax-loading").remove();
+            event.preventDefault();
+            var ye = confirm('Are you sure want to post voucher and lock this process?');
+            $('.ajax-loading').hide();
+            if (ye) {
+                $.ajax({
+                    url: this.href,
+                    data: {},
+                    type: 'GET',
+                    datatype: 'json',
+                    success: function (data) {
+                        SetMessage(data);
+                    },
+                    error: function () { }
+                });
+            }
+        });
+        $('.viewDetail').click(function (event) {
+            event.preventDefault();
+            $('#divModallg').empty();
+            var url = this.href;
+
+            $.ajax({
+                url: url,
+                data: {},
+                type: 'GET',
+                datatype: 'HTML',
+                success: function (data) {
+                    $('#divMainModal').modal({
+                        backdrop: 'static',
+                        keyboard: false
+                    })
+                    $('#divMainModal').modal('show');
+                    $('#divModallg').html(data);
+
+
+                },
+                error: function () { }
+            });
+        });
+        $("#divMainModal").on("hidden.bs.modal", function () {
+            $('#divModallg').empty();
+        });
+
+        function SetMessage(data)
+        {
+            var dom = '';
+            if (data.status == 'ok') {
+                dom = "<div class='alert alert-success alert-dismissible fade in' role='alert' style='margin-top:0px'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>×</span></button><strong>" + data.msg + " </strong></div>";
+            }
+            else {
+                dom = "<div class='alert alert-warning alert-dismissible fade in' role='alert' style='margin-top:0px'><button type='button' class='close' data-dismiss='alert' aria-label='Close'><span aria-hidden='true'>×</span></button><strong>" + data.msg + " </strong></div>";
+            }
+            $('#divprogressbar').html(dom);
+            setTimeout(function () {
+                $('#mod-paymentLocalProgress').modal('hide');
+                window.progressBarActive = false;
+                location.reload();
+            }, 5000);
+            $('#mod-paymentLocalProgress').modal('show');
+            window.progressBarActive = false;
+            //location.reload();
+
+        }
+    </script>
+}
+------------------------------------------------------------------------------------------------------------------------------
+SignalR class code
+------------------------------------------------------------------------------------------------------------------------------
+using Microsoft.AspNet.SignalR;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Threading.Tasks;
+using Smart.Data;
+using System.Web;
+
+namespace Smart.Hubs
+{
+    public class MyHub : Hub
+    {
+        SmartEntities db = new SmartEntities();
+        public MyHub()
+        {
+            // Create a Long running task to do an infinite loop which will keep sending the server time
+            // to the clients every 3 seconds.
+            var taskTimer = Task.Factory.StartNew(async () =>
+            {
+                while (true)
+                {
+                    
+                    //var test=db.Database.ExecuteSqlCommand("Update UserLoginStatus set IsLogout=1 where LastPingDateTime>= DATEADD(ss, -60, GETDATE())");
+                    string query = @"select COUNT(D.Id)
+                                from UserLoginStatus d 
+                                inner join (Select UserId, Max(Id) Id from UserLoginStatus where IsLogout = 0 group by UserId)
+                                as temp on d.UserId = temp.UserId and d.Id = temp.Id 
+                                WHERE  d.GlobalPingDateTime BETWEEN DATEADD(ss, -40, GETDATE()) AND DATEADD(ss, 40, GETDATE())";
+                    int userCount=db.Database.SqlQuery<int>(query).FirstOrDefault();
+                    //int userCount=db.UserLoginStatus.Where(m => m.IsLogout == false).Count();
+                    string timeNow = DateTime.Now.ToString();
+                    //Sending the server time to all the connected clients on the client method SendServerTime()
+                    Clients.All.SendServerTime(userCount);
+                    //Delaying by 3 seconds.
+                    await Task.Delay(3000);
+                }
+            }, TaskCreationOptions.LongRunning
+                );
+        }
+        
+    }
+}
