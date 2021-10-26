@@ -1,0 +1,888 @@
+using APIHTTPClient.Helpers;
+using PagedList;
+using Smart.Data.Infrastructure;
+using Smart.Filters;
+using Smart.Helpers;
+using Smart.Hubs;
+using Smart.Model.Models.MasterPanel;
+using Smart.Model.Models.PR;
+using Smart.Model.TOs;
+using Smart.Model.TOs.HRM;
+using Smart.Model.TOs.MasterPanel;
+using Smart.Model.TOs.PF;
+using Smart.Model.TOs.PR;
+using Smart.Service.HRM;
+using Smart.Service.MasterPanel;
+using Smart.Service.PF;
+using Smart.Service.PR;
+using Smart.Service.Services.HRM;
+using Smart.Web.Core.Utility;
+using Smart.Web.Helpers;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Globalization;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+
+namespace Smart.Areas.PR.Controllers
+{
+    public class PaymentProcessExpatriateController : Controller
+    {
+        #region Global
+        private readonly IFinancialYearService _financialYearService;
+        private readonly ISalaryProcessService _salaryProcessService;
+        private readonly IPaymentProcessService _paymentProcessService;
+        private readonly IPFVoucherService _voucherService;
+        private readonly IOfficeTypeService _officeTypeService;
+        private readonly IEmployeeService _employeeService;
+        private readonly ICompanyService _companyService;
+        private readonly ICountryWiseDeductionPolicyService _countryWiseDeductionPolicyService;
+        private readonly IOfficeService _officeService;
+        private readonly IVoucherTypeService _pfVoucherTypeService;
+        private readonly bool isExpatriate = true;
+        private readonly Message _message = new Message();
+        DataFilter dataFilter = new DataFilter();
+        private readonly string controllerName = "PaymentProcessExpatriate";
+        private readonly int _companyId = SmartSession.CompanyId;
+        private string _userId = SmartSession.UserId;
+        private string _roleName = SmartSession.RoleName;
+        private int _countryId = SmartSession.CountryId;
+        #endregion
+
+        #region Constructor
+        public PaymentProcessExpatriateController(IFinancialYearService financialYearService, ISalaryProcessService salaryProcessService, IPaymentProcessService paymentProcessService, IPFVoucherService voucherService, IOfficeTypeService officeTypeService, IEmployeeService employeeService, ICompanyService companyService, ICountryWiseDeductionPolicyService countryWiseDeductionPolicyService, IOfficeService officeService, IVoucherTypeService pfVoucherTypeService)
+        {
+            _financialYearService = financialYearService;
+            _salaryProcessService = salaryProcessService;
+            _paymentProcessService = paymentProcessService;
+            _voucherService = voucherService;
+            _officeTypeService = officeTypeService;
+            _employeeService = employeeService;
+            _companyService = companyService;
+            _countryWiseDeductionPolicyService = countryWiseDeductionPolicyService;
+            this._officeService = officeService;
+            _pfVoucherTypeService = pfVoucherTypeService;
+        }
+        #endregion
+
+        [SmartAuthorization]
+        public ActionResult Index(string Name, int? Company = 0, int? size = 10, int page = 0)
+        {
+            try
+            {
+                Company = Company == 0 ? _companyId : Company;
+                page = page < 1 ? 1 : page;
+                size = size < 10 ? 10 : size;
+                TempData["page"] = page;
+                TempData["size"] = size;
+                ViewBag.size = size;
+                ViewBag.page = page;//
+                ViewBag.Name = Name;
+                ViewBag.Company = Company;
+                if (Company.Value == 0)
+                {
+
+                    ViewBag.Company = new SelectList(dataFilter.GetPermittedCompanies(SmartSession.RoleName, SmartSession.UserId, SmartSession.CountryId, SmartSession.CompanyId, SmartSession.IsMultipleEntityAccess), "Id", "Name");
+                }
+                else
+                {
+                    ViewBag.Company = new SelectList(dataFilter.GetPermittedCompanies(SmartSession.RoleName, SmartSession.UserId, SmartSession.CountryId, SmartSession.CompanyId, SmartSession.IsMultipleEntityAccess), "Id", "Name", Company.Value);
+                }//
+
+                ViewBag.TitleName = dataFilter.GetAliasName(controllerName);
+                ViewBag.UserList = dataFilter.GetUserList();
+                var permittedCompanies = dataFilter.GetPermittedCompanies(SmartSession.RoleName, SmartSession.UserId, SmartSession.CountryId, Company.Value, SmartSession.IsMultipleEntityAccess).Select(s => s.Id.Value).ToList();
+                IPagedList<PaymentProcess> result = _paymentProcessService.GetPaymentProcessPaged(new Page(page, size.Value), isExpatriate, permittedCompanies, Company.Value, Name);
+                //IPagedList<PaymentProcess> result = _paymentProcessService.GetPaymentProcessPaged(new Page(page.Value, size.Value), isExpatriate, Company);
+                if (result.Count > 0)
+                {
+                    foreach (var item in result)
+                    {
+                        DataTable getReaminingEmp = new DataTable();
+                        int getAllVoucherList = 0;
+                        if (item.ProcessName.Equals("Tax Payment"))
+                        {
+                            getReaminingEmp = _voucherService.GetEmployeesForVouhcerPosting(item.Year, item.Month, 1, item.CompanyId, "Tax", item.ProcessName);
+                            getAllVoucherList = _voucherService.GetAllVoucherByMonthYear(item.Year, item.Month, 1, item.CompanyId, "Tax");
+                        }
+                        else
+                        {
+                            getReaminingEmp = _voucherService.GetEmployeesForVouhcerPosting(item.Year, item.Month, 1, item.CompanyId, "All", item.ProcessName);
+                            getAllVoucherList = _voucherService.GetAllVoucherByMonthYear(item.Year, item.Month, 1, item.CompanyId, "All");
+                        }
+                        decimal postedEmp = 0;
+                        postedEmp = getAllVoucherList - getReaminingEmp.Rows.Count;
+                        if (getAllVoucherList > 0)
+                        {
+                            item.VoucherPostPercentage = (postedEmp / Convert.ToDecimal(getAllVoucherList)) * 100;
+                        }
+                        else
+                        {
+                            item.VoucherPostPercentage = 0;
+                        }
+                    }
+                }
+                return View(result);
+            }
+            catch (Exception ex)
+            {
+                ViewBag.size = size;
+                ViewBag.page = page;
+                _message.custom(this, "Failed to load Payment Process Expatriate.");
+                return View();
+            }
+        }
+        [SmartAuthorization]
+        public ActionResult Create()
+        {
+            try
+            {
+                ViewBag.TitleName = dataFilter.GetAliasName(controllerName);
+                ViewBag.ProcessId = new SelectList(GetAllPayment(""), "Id", "Name");
+                ViewBag.FromMonth = new SelectList(GetMonth(), "Value", "Text");
+                ViewBag.ToMonth = new SelectList(GetMonth(), "Value", "Text");
+                PaymentProcess model = new PaymentProcess();
+                model.PaymentDate = DateTime.Now;
+                model.CompanyList = dataFilter.GetCompanyCheckList(SmartSession.RoleName, SmartSession.CompanyId, SmartSession.UserId, SmartSession.CountryId, SmartSession.IsMultipleEntityAccess);
+                return View(model);
+            }
+            catch (Exception ex)
+            {
+                _message.custom(this, ex.ToString());
+                return RedirectToAction("Index");
+            }
+        }
+
+        [HttpPost]
+        [SmartAuthorization]
+        public ActionResult Create(PaymentProcess model)
+        {
+            try
+            {
+                ViewBag.TitleName = dataFilter.GetAliasName(controllerName);
+                ViewBag.ProcessId = new SelectList(GetAllPayment(""), "Id", "Name", model.ProcessId);
+                ViewBag.FromMonth = new SelectList(GetMonth(), "Value", "Text");
+                ViewBag.ToMonth = new SelectList(GetMonth(), "Value", "Text");
+                var selectedCompanies = model.CompanyList.Where(c => c.Checked == true).Select(d => d.Id).ToList();
+
+
+                var companyNameList = _companyService.GetListByCountry(SmartSession.CountryId);
+                if (model.ProcessId == "-2")
+                {
+                    model.ComponentId = -2;
+                    model.ProcessName = "Tax Payment";
+                }
+                else if (model.ProcessId == "-1")
+                {
+                    model.ComponentId = -1;
+                    model.ProcessName = "Salary Payment";
+                }
+                else
+                {
+                    model.ComponentId = 0;
+                    model.ProcessName = "";
+                }
+
+                string ErrorCompaniesTax = "";
+                string ErrorCompaniesMonth = "";
+                string ErrorCompaniesSaved = "";
+                List<ToTimeZone> timeZoneList = _countryWiseDeductionPolicyService.GetTimeZoneListByCompanyIds(selectedCompanies, SmartSession.ClientTimeZoneId);
+                foreach (var companyId in selectedCompanies)
+                {
+                    DateTime companyTime = timeZoneList.Where(a => a.CompanyId == companyId).FirstOrDefault().TimeZoneDate;
+                    TOMaxMonthYear maxSalaryMonthYear = null;
+                    if (Convert.ToInt32(model.ProcessId) > 0)
+                    {
+                        int MappedId = _pfVoucherTypeService.GetOtherAllowanceMapIdByHeadIdAndCompanyId(Convert.ToInt32(model.ProcessId), companyId);
+
+                        model.ComponentId = MappedId;
+                        model.ProcessName = _pfVoucherTypeService.GetHeadNameByMappedName(MappedId, companyId);
+                    }
+
+
+                    if (model.ProcessName.Equals("Tax Payment"))
+                    {
+                        maxSalaryMonthYear = _paymentProcessService.GetTaxProcessMaxMonthYear(isExpatriate, SmartSession.CountryId, companyId);
+                    }
+                    else
+                    {
+                        maxSalaryMonthYear = _paymentProcessService.GetSalaryProcessMaxMonthYear(isExpatriate, companyId);
+                    }
+
+                    if (maxSalaryMonthYear != null)
+                    {
+                        model.Month = maxSalaryMonthYear.Month;
+                        model.Year = maxSalaryMonthYear.Year;
+
+                        if (model.Month == 0)
+                            model.Month = companyTime.Month;
+
+                        if (model.Year == 0)
+                            model.Year = companyTime.Year;
+
+                        if (model.ProcessName.Equals("Tax Payment"))
+                        {
+                            var istaxProvisionDone = _paymentProcessService.IsTaxProvisionDone(model.Month, model.Year, isExpatriate, companyId);
+                            if (!istaxProvisionDone)
+                            {
+                                ErrorCompaniesTax += "," + companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name;
+                            }
+                        }
+
+                        bool isExists = _paymentProcessService.CheckIfExistPaymentProcessByComponentId(model.ComponentId, model.Month, model.Year, isExpatriate, companyId);
+                        if (isExists)
+                        {
+                            ErrorCompaniesSaved += "," + companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name;
+                        }
+                    }
+                    else
+                    {
+                        ErrorCompaniesMonth += "," + companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name;
+                    }
+                }
+
+                if (ErrorCompaniesMonth.Length > 1)
+                {
+                    ErrorCompaniesMonth = ErrorCompaniesMonth.Substring(1, ErrorCompaniesMonth.Length - 1);
+                    _message.custom(this, "No payment month found for selected payment process for" + ErrorCompaniesMonth + ".");
+                    return View(model);
+                }
+
+                if (ErrorCompaniesSaved.Length > 1)
+                {
+                    ErrorCompaniesSaved = ErrorCompaniesSaved.Substring(1, ErrorCompaniesSaved.Length - 1);
+                    _message.custom(this, "Selected payment process already saved for latest month and year for " + ErrorCompaniesSaved + ".");
+                    return View(model);
+                }
+
+                if (model.ProcessName.Equals("Tax Payment"))
+                {
+                    if (ErrorCompaniesTax.Length > 1)
+                    {
+                        ErrorCompaniesTax = ErrorCompaniesTax.Substring(1, ErrorCompaniesTax.Length - 1);
+                        _message.custom(this, "Tax provision is not done for " + ErrorCompaniesTax + ". Can not proceed for payment.");
+                        return View(model);
+                    }
+                }
+
+                #region Printing Date Time
+                //DateTime reportDateTime = _countryWiseDeductionPolicyService.GetDateTimeByCompanyId(SmartSession.CompanyId, SmartSession.ClientTimeZoneId);
+                #endregion
+
+                List<PaymentProcess> paymentProcessList = new List<PaymentProcess>();
+                foreach (var companyId in selectedCompanies)
+                {
+                    DateTime companyTime = timeZoneList.Where(a => a.CompanyId == companyId).FirstOrDefault().TimeZoneDate;
+                    PaymentProcess paymentProcess = new PaymentProcess();
+
+                    paymentProcess.CompanyId = companyId;
+                    paymentProcess.AddedBy = SmartSession.UserId;
+                    paymentProcess.AddedOn = companyTime;
+                    paymentProcess.IsDeleted = false;
+                    paymentProcess.IsExpatriate = isExpatriate;
+                    paymentProcess.Month = model.Month;
+                    paymentProcess.Year = model.Year;
+                    paymentProcess.ProcessName = model.ProcessName;
+                    paymentProcess.PaymentDate = model.PaymentDate;
+          
+
+                    if (Convert.ToInt32(model.ProcessId) > 0)
+                    {
+                        int MappedId = _pfVoucherTypeService.GetOtherAllowanceMapIdByHeadIdAndCompanyId(Convert.ToInt32(model.ProcessId), companyId);
+                        paymentProcess.ComponentId = MappedId;
+                    }
+                    else
+                    {
+                        paymentProcess.ComponentId = Convert.ToInt32(model.ProcessId);
+                    }
+
+
+                    paymentProcess.PaymentProcessDetails = model.PaymentProcessDetails.Where(p => p.CompanyId == companyId).ToList();
+
+                    if (paymentProcess.PaymentProcessDetails != null && paymentProcess.PaymentProcessDetails.Count() > 0)
+                    {
+                        paymentProcessList.Add(paymentProcess);
+                    }
+                }
+
+                bool isSaved = _paymentProcessService.AddMultiple(paymentProcessList);
+                if (!isSaved)
+                {
+                    _message.custom(this, "No Data Saved.");
+                    return RedirectToAction("Index");
+                }
+                else
+                {
+                    _message.save(this);
+                    return RedirectToAction("Index");
+                }
+
+            }
+            catch (Exception ex)
+            {
+                ViewBag.TitleName = dataFilter.GetAliasName(controllerName);
+                ViewBag.ProcessId = new SelectList(GetAllPayment(""), "Name", "Name");
+                ViewBag.FromMonth = new SelectList(GetMonth(), "Value", "Text");
+                ViewBag.ToMonth = new SelectList(GetMonth(), "Value", "Text");
+                _message.custom(this, ex.ToString());
+                return RedirectToAction("Index");
+            }
+        }
+
+        [HttpGet]
+        [SmartAuthorization(All = true)]
+        public ActionResult GetProcessDetails(string processName, string CompanyIds) // add your selectedVal value in controller
+        {
+            CompanyIds = CompanyIds.Remove(CompanyIds.Length - 1);
+            List<int> companyIdList = CompanyIds.Split(',').Select(int.Parse).ToList();
+            ViewBag.OfficeType = _officeTypeService.GetOfficetypeListOrderBy(SmartSession.CountryId);
+            var companyNameList = _companyService.GetListByCountry(SmartSession.CountryId);
+            PaymentProcess model = new PaymentProcess();
+            List<PaymentProcessDetails> finalList = new List<PaymentProcessDetails>();
+            model.PaymentProcessDetails = new List<PaymentProcessDetails>();
+            string notProvisionedCompanyName = "";
+
+            if (processName.Equals("-1"))
+            {
+                #region Salary Payment
+                foreach (var companyId in companyIdList)
+                {
+                    TOMaxMonthYear maxSalaryMonthYear = _paymentProcessService.GetSalaryProcessMaxMonthYear(isExpatriate, companyId);
+                    var provisionedVoucherList = _paymentProcessService.GetSalaryProvisionedVoucherList(maxSalaryMonthYear.Month, maxSalaryMonthYear.Year, isExpatriate, companyId);
+                    var paymentProcessDetails = _paymentProcessService.GetAllSalaryProcessPaymentDetails(isExpatriate, companyId, SmartSession.CountryId);
+
+                    if (paymentProcessDetails.Count() > 0 && provisionedVoucherList.Count() == paymentProcessDetails.Where(pd => pd.NetPayable > 0).ToList().Count())
+                    {
+                        model.IsSalaryProvisionDone = true;
+                        var paymentVoucherList = _paymentProcessService.GetSalaryPaymentVoucherList(maxSalaryMonthYear.Month, maxSalaryMonthYear.Year, isExpatriate, companyId);
+
+                        if(paymentVoucherList.Count() >0)
+                        //if (provisionedVoucherList.Count() > 0 && paymentVoucherList.Count() == provisionedVoucherList.Count())
+                        {
+                            paymentProcessDetails.ForEach(ppd =>
+                            {
+                                ppd.NetPayable = paymentVoucherList.Where(c => c.EmployeeId == ppd.EmployeeId).FirstOrDefault().VoucherAmount;
+                            });
+
+                            finalList.AddRange(paymentProcessDetails);
+                        }
+                    }
+                    else
+                    {
+                        notProvisionedCompanyName += string.IsNullOrEmpty(notProvisionedCompanyName) ? companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name : ", " + companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name;
+                    }
+                }
+                if (notProvisionedCompanyName.Length > 0)
+                {
+                    model.IsSalaryProvisionDone = false;
+                    model.IsNoVoucherFound = false;
+                    model.ErrorMessage = "Salary provision is not processed yet for " + notProvisionedCompanyName + ". So you can not generate payment.";
+                    return PartialView("_paymentProcessDetails", model);
+                }
+
+                model.PaymentProcessDetails = finalList;
+
+                #endregion
+            }
+            else if (processName.Equals("-2"))
+            {
+                #region Tax Payment
+
+                foreach (var companyId in companyIdList)
+                {
+                    TOMaxMonthYear maxTaxMonthYear = _paymentProcessService.GetTaxProcessMaxMonthYear(isExpatriate, SmartSession.CountryId, companyId);
+                    var provisionedVoucherList = _paymentProcessService.GetTaxProvisionedVoucherList(maxTaxMonthYear.Month, maxTaxMonthYear.Year, isExpatriate, companyId);
+                    var paymentProcessDetails = _paymentProcessService.GetAllTaxProcessPaymentDetails(isExpatriate, companyId, SmartSession.CountryId);
+
+                    if (paymentProcessDetails.Count() > 0 && provisionedVoucherList.Count() == paymentProcessDetails.Where(pd => pd.NetPayable > 0).ToList().Count())
+                    {
+                        model.IsSalaryProvisionDone = true;
+                        var paymentVoucherList = _paymentProcessService.GetTaxPaymentVoucherList(maxTaxMonthYear.Month, maxTaxMonthYear.Year, isExpatriate, companyId);
+
+                        if(paymentVoucherList.Count() >0)
+                        //if (provisionedVoucherList.Count() > 0 && paymentVoucherList.Count() == provisionedVoucherList.Count())
+                        {
+                            paymentProcessDetails.ForEach(ppd =>
+                            {
+                                ppd.NetPayable = paymentVoucherList.Where(c => c.EmployeeId == ppd.EmployeeId).FirstOrDefault().VoucherAmount;
+                            });
+
+                            finalList.AddRange(paymentProcessDetails);
+                        }
+                    }
+                    else
+                    {
+                        notProvisionedCompanyName += string.IsNullOrEmpty(notProvisionedCompanyName) ? companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name : ", " + companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name;
+                    }
+                }
+
+                if (notProvisionedCompanyName.Length > 0)
+                {
+                    model.IsSalaryProvisionDone = false;
+                    model.IsNoVoucherFound = false;
+                    model.ErrorMessage = "Income tax provision is not processed yet for " + notProvisionedCompanyName + ". So you can not generate payment.";
+                    return PartialView("_paymentProcessDetails", model);
+                }
+
+                model.PaymentProcessDetails = finalList;
+
+                #endregion
+            }
+            else
+            {
+                #region Other Allowance and Deduction Payment
+                foreach (var companyId in companyIdList)
+                {
+                    int MappedId = _pfVoucherTypeService.GetOtherAllowanceMapIdByHeadIdAndCompanyId(Convert.ToInt32(processName), companyId);
+
+                    if (MappedId > 0)
+                    {
+                        TOMaxMonthYear maxSalaryMonthYear = _paymentProcessService.GetSalaryProcessMaxMonthYear(isExpatriate, companyId);
+                        var provisionedVoucherList = _paymentProcessService.GetDeductionProvisionedVoucherList(maxSalaryMonthYear.Month, maxSalaryMonthYear.Year, isExpatriate, companyId, MappedId);
+                        var paymentProcessDetails = _paymentProcessService.GetAllSocialSecurityDynamicPayment(MappedId, isExpatriate, companyId, SmartSession.CountryId);
+
+                        if (paymentProcessDetails.Count() > 0 && provisionedVoucherList.Count() == paymentProcessDetails.Count())
+                        {
+                            model.IsSalaryProvisionDone = true;
+                            var paymentVoucherList = _paymentProcessService.GetDeductionPaymentVoucherList(maxSalaryMonthYear.Month, maxSalaryMonthYear.Year, isExpatriate, companyId, MappedId);
+
+                            if(paymentVoucherList.Count() >0 )
+                            //if (provisionedVoucherList.Count() > 0 && paymentVoucherList.Count() == provisionedVoucherList.Count())
+                            {
+                                paymentProcessDetails.ForEach(ppd =>
+                                {
+                                    ppd.NetPayable = paymentVoucherList.Where(c => c.EmployeeId == ppd.EmployeeId).FirstOrDefault().VoucherAmount;
+                                });
+
+                                finalList.AddRange(paymentProcessDetails);
+                            }
+                        }
+                        else
+                        {
+                            notProvisionedCompanyName += string.IsNullOrEmpty(notProvisionedCompanyName) ? companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name : ", " + companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name;
+                        }
+                    }
+                    else
+                    {
+                        notProvisionedCompanyName += string.IsNullOrEmpty(notProvisionedCompanyName) ? companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name : ", " + companyNameList.Where(c => c.Id == companyId).FirstOrDefault().Name;
+                    }
+                }
+
+                if (notProvisionedCompanyName.Length > 0)
+                {
+                    model.IsSalaryProvisionDone = false;
+                    model.IsNoVoucherFound = false;
+                    model.ErrorMessage = "This selected head's provision is not processed yet for " + notProvisionedCompanyName + ". So you can not generate payment.";
+                    return PartialView("_paymentProcessDetails", model);
+                }
+
+                model.PaymentProcessDetails = finalList;
+
+                #endregion
+            }
+
+            model.IsNoVoucherFound = false;
+            if (model.PaymentProcessDetails.Count > 0 && !model.PaymentProcessDetails.Any(p => p.NetPayable > 0))
+            {
+                model.IsNoVoucherFound = true;
+            }
+            #region NumberRounding
+            ViewBag.NumberRounding = _countryWiseDeductionPolicyService.GetNumberRoundingStringFormatByCompanyId(companyIdList[0]);
+            #endregion
+            model.PaymentProcessDetails = model.PaymentProcessDetails.Where(pd => pd.NetPayable > 0).ToList();
+            return PartialView("_paymentProcessDetails", model);
+        }
+
+        private List<ToIdNameList> GetAllPayment2()
+        {
+            List<ToIdNameList> result = new List<ToIdNameList>
+            {
+                new ToIdNameList { Id = -1, Name = "Salary Payment" },
+                new ToIdNameList { Id = -2, Name = "Tax Payment" }
+            };
+
+            List<ToIdNameList> socialSecurities = _pfVoucherTypeService.GetAllSocialSecurityByCompanyIdCountryIdTypeWise(_companyId, SmartSession.CountryId, 2, true).ToList();
+            if (socialSecurities.Count > 0)
+                result.AddRange(socialSecurities);
+
+            return result;
+        }
+
+        private List<ToIdNameList> GetAllPayment(string CompanyIds)
+        {
+            if (CompanyIds == "")
+            {
+                CompanyIds = SmartSession.CompanyId.ToString() + ",";
+            }
+            CompanyIds = CompanyIds.Remove(CompanyIds.Length - 1);
+            List<ToIdNameList> result = new List<ToIdNameList>
+            {
+                new ToIdNameList { Id = -1, Name = "Salary Payment" },
+                new ToIdNameList { Id = -2, Name = "Tax Payment" }
+
+            };
+
+            List<ToIdNameList> socialSecurities = _pfVoucherTypeService.GetAllSocialSecurityByCompanyIdsCountryIdTypeWise(CompanyIds, SmartSession.CountryId, 2).ToList();
+            if (socialSecurities.Count > 0)
+                result.AddRange(socialSecurities);
+
+
+            List<ToIdNameList> nonSalaryAllowance = _pfVoucherTypeService.GetAllOtherAllowanceCompanyIdsCountryId(CompanyIds, SmartSession.CountryId).ToList();
+            if (nonSalaryAllowance.Count > 0)
+                result.AddRange(nonSalaryAllowance);
+
+            return result;
+        }
+
+        [SmartAuthorization(All = true)]
+        public JsonResult GetAllPaymentJson(string CompanyIds)
+        {
+            if (CompanyIds == "")
+            {
+                CompanyIds = SmartSession.CompanyId.ToString() + ",";
+            }
+            CompanyIds = CompanyIds.Remove(CompanyIds.Length - 1);
+            List<ToIdNameList> result = new List<ToIdNameList>
+            {
+                new ToIdNameList { Id = -1, Name = "Salary Payment" },
+                new ToIdNameList { Id = -2, Name = "Tax Payment" }
+
+            };
+
+            List<ToIdNameList> socialSecurities = _pfVoucherTypeService.GetAllSocialSecurityByCompanyIdsCountryIdTypeWise(CompanyIds, SmartSession.CountryId, 2).ToList();
+            if (socialSecurities.Count > 0)
+                result.AddRange(socialSecurities);
+
+            List<ToIdNameList> nonSalaryAllowance = _pfVoucherTypeService.GetAllOtherAllowanceCompanyIdsCountryId(CompanyIds, SmartSession.CountryId).ToList();
+            if (nonSalaryAllowance.Count > 0)
+                result.AddRange(nonSalaryAllowance);
+
+            return Json(result, JsonRequestBehavior.AllowGet);
+        }
+
+
+        #region Get Payment List
+        [SmartAuthorization(All = true)]
+        public ActionResult GetList(int monthFrom, int monthTo, string processName)
+        {
+            return Json("", JsonRequestBehavior.AllowGet);
+        }
+        #endregion
+
+        #region Get Post Status
+        [SmartAuthorization(All = true)]
+        public ActionResult GetVoucherPostStatus(int? id)
+        {
+            if (id == null)
+            {
+                _message.custom(this, "No id found.");
+                return RedirectToAction("Index");
+            }
+
+            try
+            {
+                PaymentProcess paymentProcess = _paymentProcessService.GetDetails(id.Value, SmartSession.CountryId);
+
+                ClientHelper clientHelper = new ClientHelper();
+              
+                var postLogLilst = _voucherService.GetVoucherPostLogByMonth(paymentProcess.Month, paymentProcess.Year, paymentProcess.ProcessName, isExpatriate, paymentProcess.CompanyId);
+
+                string url = "PostVoucherStatus?AppID=DATASOFT&voucherDate=" + paymentProcess.VoucherPostDate.Value.ToString("yyyy-MM-dd");
+
+                List<TOVoucherPostStatus> finalResult = new List<TOVoucherPostStatus>();
+                List<TOVoucherPostStatus> response = null;
+
+                #region integration test
+                //Dictionary<string, string> matchedData = new Dictionary<string, string>();
+                //matchedData.Add("3800008", "MM400001");
+                //matchedData.Add("3800007", "MM400022");
+                //matchedData.Add("3800005", "MM500016");
+                //matchedData.Add("3800011", "MM500071");
+                #endregion
+                try
+                {
+                    response = clientHelper.GetAllData<TOVoucherPostStatus>(url).Result as List<TOVoucherPostStatus>;
+
+                    if (response != null && response.Count > 0)
+                    {
+                        finalResult.AddRange(response);
+                    }
+
+                    //string urlMM = "PostVoucherStatus?AppID=DATASOFT&voucherDate=2020-02-25";
+                    //response = clientHelper.GetAllData<TOVoucherPostStatus>(urlMM).Result as List<TOVoucherPostStatus>;
+                    //if (response != null && response.Count > 0)
+                    //{
+                    //    finalResult.AddRange(response);
+                    //}
+
+                    //string urlMM5 = "PostVoucherStatus?AppID=DATASOFT&voucherDate=2020-02-19";
+                    //response = clientHelper.GetAllData<TOVoucherPostStatus>(urlMM5).Result as List<TOVoucherPostStatus>;
+                    //if (response != null && response.Count > 0)
+                    //{
+                    //    finalResult.AddRange(response);
+                    //}
+
+                }
+                catch (Exception ex)
+                {
+                    _message.custom(this, "No voucher post status found from SBI cloud.");
+                    return RedirectToAction("Index");
+                    // Show message: Final Settlement data is not available from SBI Cloud. Please contact your Admin.
+                }
+                if (finalResult.Count > 0)
+                {
+                    List<TOVoucherPostCheckStatus> returnList = new List<TOVoucherPostCheckStatus>();
+                    var finalList = finalResult.Where(r => postLogLilst.Any(pl => pl.BufferId == r.Bufferid)).ToList();
+
+                    List<ToOfficeType> typeList = _officeTypeService.GetToOfficetypeList(SmartSession.CountryId);
+                    List<Office> officeList = _officeService.GetAllOfficeByCountryId(SmartSession.CountryId).ToList();
+
+                    foreach (var item in finalList)
+                    {
+                        var singleResponse = _voucherService.GetVoucherPostLogByBufferId(item.Bufferid, 1);
+                        if (singleResponse != null)
+                        {
+                            singleResponse.EmployeeOfficeList = _employeeService.GetEmployeeOfficeFormatByOfficeId(singleResponse.OfficeId, typeList, officeList);
+                            singleResponse.ErrorStatus = item.ErrorStatus;
+                            singleResponse.PostStatus = item.PostStatus;
+                            singleResponse.RejectStatus = item.RejectStatus;
+                            singleResponse.Details = item.Details;
+                            returnList.Add(singleResponse);
+                        }
+                    }
+                    if (returnList.Count > 0)
+                    {
+                        Company country = _companyService.GetCompanyDetails(SmartSession.CompanyId);
+                        ViewBag.DisplayName = country.DisplayName;
+                        ViewBag.OfficeType = _officeTypeService.GetOfficetypeListOrderBy(SmartSession.CountryId);
+                        return View(returnList);
+                    }
+                }
+                _message.custom(this, "No voucher post status found.");
+                return RedirectToAction("Index");
+            }
+            catch (Exception e)
+            {
+                _message.custom(this, "Operation Failed.");
+                return RedirectToAction("Index");
+            }
+        }
+        #endregion
+
+        #region Get View
+        [HttpGet]
+        [SmartAuthorization(All = true)]
+        public ActionResult ViewDetails(int? id)
+        {
+            try
+            {
+                if (id == null)
+                {
+                    return PartialView("_Error");
+                }
+                PaymentProcess paymentProcess = _paymentProcessService.GetDetails(id.Value, SmartSession.CountryId);
+                if (paymentProcess == null)
+                {
+                    return PartialView("_Error");
+                }
+                #region NumberRounding
+                ViewBag.NumberRounding = _countryWiseDeductionPolicyService.GetNumberRoundingStringFormatByCompanyId(SmartSession.CompanyId);
+                #endregion
+                return PartialView("~/Areas/PR/Views/PaymentProcessExpatriate/Details.cshtml", paymentProcess);
+            }
+            catch (Exception ex)
+            {
+                return PartialView("_Error");
+            }
+        }
+
+        [HttpGet]
+        [SmartAuthorization(All = true)]
+        public ActionResult PaymentView(int? id)
+        {
+            if (id == null)
+            {
+                return PartialView("_Error");
+            }
+            PaymentProcess paymentProcess = _paymentProcessService.GetDetails(id.Value, SmartSession.CountryId);
+            if (paymentProcess == null)
+            {
+                return PartialView("_Error");
+            }
+            ViewBag.TitleName = dataFilter.GetAliasName(controllerName);
+            ViewBag.OfficeType = _officeTypeService.GetOfficetypeListOrderBy(SmartSession.CountryId);
+            #region NumberRounding
+            ViewBag.NumberRounding = _countryWiseDeductionPolicyService.GetNumberRoundingStringFormatByCompanyId(SmartSession.CompanyId);
+            #endregion
+            return View(paymentProcess);
+        }
+        #endregion
+
+        #region Get Delete
+        [HttpGet]
+        [SmartAuthorization]
+        public ActionResult Delete(int? id)
+        {
+            try
+            {
+                if (id == null)
+                {
+                    _message.custom(this, "Invalid try.");
+                    return RedirectToAction("Index");
+                }
+                PaymentProcess process = new PaymentProcess();
+                process = _paymentProcessService.GetDetails(id.Value, SmartSession.CountryId);
+                if (process != null)
+                {
+                    var isDeleted = _paymentProcessService.Delete(process);
+                    if (isDeleted)
+                    {
+                        _message.delete(this);
+                        return RedirectToAction("Index");
+                    }
+                    else
+                    {
+                        _message.custom(this, "Cannot delete loan application!");
+                        return RedirectToAction("Index");
+                    }
+                }
+                else
+                {
+                    _message.custom(this, "Something went wrong!");
+                    return RedirectToAction("Index");
+                }
+            }
+            catch (Exception ex)
+            {
+                _message.custom(this, ex.ToString());
+                return RedirectToAction("Index");
+            }
+        }
+
+        #endregion
+
+        // return Json(new { status = "alert", msg = "Invalid try." }, JsonRequestBehavior.AllowGet);
+
+        private List<SelectListItem> GetMonth()
+        {
+            FinancialYear fiscalYear = _financialYearService.GetFinancialYearDetails(SmartSession.FinancialYearId);
+            int startMonth = fiscalYear.StartDate.Month;
+            int year = fiscalYear.StartDate.Year;
+            List<SelectListItem> items = new List<SelectListItem>();
+
+            string monthName = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(DateTime.Now.Month);
+            string currentMonthYear = monthName + " ( " + DateTime.Now.Year.ToString() + " ) ";
+
+            for (int i = 0; i < 12; i++)
+            {
+                items.Add(new SelectListItem { Value = startMonth.ToString(), Text = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(startMonth) + " ( " + year.ToString() + " ) " });
+
+                startMonth = (startMonth % 12) + 1;
+                if (startMonth == 1)
+                {
+                    year++;
+                }
+            }
+
+            return items;
+        }
+
+        [SmartAuthorization(All = true)]
+        public JsonResult PostPaymentVoucher(int? id)
+        {
+            if (id == null)
+            {
+                return Json(new { status = "alert", msg = "Invalid try." }, JsonRequestBehavior.AllowGet);
+            }
+            try
+            {
+                string userName = User.Identity.Name;
+                var hub = new Realhub();
+                hub.SendIndividual(0, 1, userName);
+                PaymentProcess paymentProcess = _paymentProcessService.GetDetails(id.Value, SmartSession.CountryId);
+
+                bool isProvisionVoucherPosted = _voucherService.IsProvisionVoucherPosted(paymentProcess.Month, paymentProcess.Year, paymentProcess.CompanyId, isExpatriate);
+                if (!isProvisionVoucherPosted)
+                {
+                    return Json(new { status = "alert", msg = "Provision voucher not posted yet! Please post provision voucher first." }, JsonRequestBehavior.AllowGet);
+                }
+
+                //bool IsPOSTSuccessfull = _voucherService.POSTVouchersInSBICloud(paymentProcess.Year, paymentProcess.Month, 1, "All", SmartSession.CompanyId, "PaymentVoucherPosting", paymentProcess.ProcessName);
+
+                DataTable DtEmployees = _voucherService.GetEmployeesForVouhcerPosting(paymentProcess.Year, paymentProcess.Month, 1, paymentProcess.CompanyId, "All", paymentProcess.ProcessName);
+                List<int> employeeIds = (from row in DtEmployees.AsEnumerable() select Convert.ToInt32(row["EmployeeId"])).ToList();
+                string responesMsg = "";
+
+                #region get all payment voucher
+                TOCommonParamsPF searchingParam = new TOCommonParamsPF
+                {
+                    Process = paymentProcess.ProcessName,
+                    CompanyId = paymentProcess.CompanyId,
+                    EmployeeType = "1",
+                    Year = paymentProcess.Year,
+                    Month = paymentProcess.Month,
+                    IsForPosting = true,
+                    CallingPoint = "PaymentVoucherPosting",
+                    ComponentId = paymentProcess.ComponentId
+                };
+                List<TOPFVoucherReportExcel> allvoucherList = null;
+
+                #endregion
+
+                
+                if (employeeIds.Count > 0)
+                {
+                    allvoucherList = _voucherService.GetVoucherAllDataForPostNext(searchingParam);
+                }
+                employeeIds = employeeIds.Where(e => allvoucherList.Any(v => e == v.EmployeeId)).ToList();
+
+                int total = employeeIds.Count;
+                int i = 1;
+                #region Printing Date Time
+                DateTime reportDateTime = _countryWiseDeductionPolicyService.GetDateTimeByCompanyId(paymentProcess.CompanyId, SmartSession.ClientTimeZoneId);
+                #endregion
+                foreach (int EmployeeId in employeeIds)
+                {
+
+                    //int EmployeeId = 0;
+                    //EmployeeId = Convert.ToInt32(row["EmployeeId"]);
+                    var singleEmpVoucherList = allvoucherList.Where(sv => sv.EmployeeId == EmployeeId).ToList();
+                    //responesMsg = _voucherService.POSTIndividualEmployeeVouchersInSBICloud(paymentProcess.Year, paymentProcess.Month, 1, EmployeeId, "All", SmartSession.CompanyId, SmartSession.CountryId, "PaymentVoucherPosting", paymentProcess.ProcessName, null);
+                    responesMsg = _voucherService.POSTIndividualEmployeeVouchersInSBICloud(paymentProcess.Year, paymentProcess.Month, reportDateTime, 0, EmployeeId, "All", paymentProcess.CompanyId, SmartSession.CountryId, "PaymentVoucherPosting", paymentProcess.ProcessName, singleEmpVoucherList);
+                    if (responesMsg.Equals("down"))
+                    {
+                        break;
+                    }
+
+                    hub.SendIndividual(i, total, userName);
+                    i++;
+                }
+                if (responesMsg.Equals("down"))
+                {
+                    return Json(new { status = "down", msg = "Voucher POST API is not available. Please contact your admin." }, JsonRequestBehavior.AllowGet);
+                }
+                
+                paymentProcess.IsVoucherPosted = true;
+                paymentProcess.VoucherPostDate = reportDateTime;
+
+
+                if (responesMsg.Equals("ok"))
+                {
+                    bool isPaymentUpdated = _paymentProcessService.Update(paymentProcess);
+                    return Json(new { status = "ok", msg = "Voucher posted successfully." }, JsonRequestBehavior.AllowGet);
+                }
+                else
+                {
+                    return Json(new { status = "alert", msg = "Cannot POST Voucher." }, JsonRequestBehavior.AllowGet);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return Json(new { status = "alert", msg = "Cannot POST Voucher." }, JsonRequestBehavior.AllowGet);
+            }
+        }
+    }
+}
