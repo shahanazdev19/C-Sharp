@@ -1,0 +1,19 @@
+using Microsoft.AspNet.SignalR;
+using Microsoft.AspNet.SignalR.Hubs;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace Smart.Hubs
+{
+    public class Realhub:Hub
+    {
+        public void SendIndividual(int counter, int total, string userName)
+        {
+            var hubContext = GlobalHost.ConnectionManager.GetHubContext<Realhub>();
+            var percentage = (counter * 100) / total;
+            hubContext.Clients.User(userName).AddProgress(counter,total, percentage + "%");
+        }
+    }
+}
