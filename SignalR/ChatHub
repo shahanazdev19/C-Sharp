@@ -1,0 +1,315 @@
+using System;
+using Smart.Service.MasterPanel;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using Microsoft.AspNet.SignalR;
+using Smart.Web.Helpers;
+using Microsoft.AspNet.SignalR.Hubs;
+using System.Threading.Tasks;
+using Microsoft.AspNet.Identity;
+
+using Microsoft.AspNet.Identity.EntityFramework;
+using LioM;
+using lioM;
+using Smart.Model.Models;
+using Smart.Model.TOs;
+using Smart.Model.Models.MasterPanel;
+using Smart.Data;
+using Smart.Filters;
+using Smart.Data.Infrastructure;
+using Smart.Controllers;
+using System.Data.Entity;
+using Smart.Service.HRM;
+
+
+namespace Smart.Web.Hubs
+{
+    [HubName("chatHub")]
+    [Authorize]
+    public class ChatHub : Hub
+    {
+          
+
+        static Dictionary<DateTime, string> _users = new Dictionary<DateTime, string>();
+
+        SmartEntities db = new SmartEntities();
+        IEmployeeService _EmployeeService ;
+        IUserService _UserService;
+
+
+
+        public void Send2(string FromUserId,string ToUserId)
+        {
+
+
+            var PP = DateTime.Now.Date;
+
+            //var allMsg = db.ChatHistories.Where(t => (t.ReceiverId == ToUserId && t.SenderId == FromUserId) || (t.ReceiverId == FromUserId && t.SenderId ==
+            //       ToUserId) && System.Data.Entity.DbFunctions.TruncateTime(t.MessageTime) == PP).OrderBy(t => t.MessageTime).Select(temp => new ChatHistoryVM  { SenderId = temp.SenderId, ReceiverId = temp.ReceiverId, Message = temp.Message, MessageDate =  DbFunctions.TruncateTime(temp.MessageTime).ToString().Substring(0,10), MessageTime = System.Data.Entity.DbFunctions.CreateTime(temp.MessageTime.Hour, temp.MessageTime.Minute, 00) }).ToList();
+
+
+            var allMsg = from em in db.Employees
+                         join u in db.Users on em.Id equals u.EmployeeId
+                         join t in db.ChatHistories on u.Id equals t.SenderId
+                         where DbFunctions.TruncateTime(t.MessageTime) == PP
+                         && (t.ReceiverId == ToUserId && t.SenderId == FromUserId) || (t.ReceiverId == FromUserId && t.SenderId == ToUserId) 
+                         orderby t.MessageTime
+
+                         select new ChatHistoryVM
+                         {
+                             SenderId = t.SenderId,
+                             ReceiverId = t.ReceiverId,
+                             Message = t.Message,
+                             MessageDate = DbFunctions.TruncateTime(t.MessageTime).ToString().Substring(0, 10),
+                             MessageTime = System.Data.Entity.DbFunctions.CreateTime(t.MessageTime.Hour, t.MessageTime.Minute, 00),
+                             Picture = String.IsNullOrEmpty(em.ApplicantPicture) ? "/Images/default_emp.png" : em.ApplicantPicture,
+                             Name = em.FirstName + " " + em.MiddleName + " " + em.LastName
+
+                         };
+
+
+            Clients.Group(ToUserId).SendMessage(allMsg, FromUserId, ToUserId);
+
+
+        }
+
+
+        public void GetMsgForAll(string UserId)
+        {
+
+
+            var PP = DateTime.Now.Date;
+
+           // var allMsg = db.ChatHistories.Where( t=> t.ReceiverId=="all" && System.Data.Entity.DbFunctions.TruncateTime(t.MessageTime) == PP).OrderBy(t => t.MessageTime).Select(temp => new ChatHistoryVM { SenderId = temp.SenderId, ReceiverId = temp.ReceiverId, Message = temp.Message, MessageDate = DbFunctions.TruncateTime(temp.MessageTime).ToString().Substring(0, 10), MessageTime = System.Data.Entity.DbFunctions.CreateTime(temp.MessageTime.Hour, temp.MessageTime.Minute, 00) }).ToList();
+
+            var allMsg = from em in db.Employees
+                      join u in db.Users on em.Id equals u.EmployeeId
+                      join t in db.ChatHistories on u.Id equals t.SenderId
+                      where DbFunctions.TruncateTime(t.MessageTime) == PP && 
+                      t.ReceiverId == "all"
+                      orderby t.MessageTime
+
+                      select new ChatHistoryVM
+                      {
+                          SenderId = t.SenderId,
+                          Message = t.Message,
+                          MessageDate = DbFunctions.TruncateTime(t.MessageTime).ToString().Substring(0, 10),
+                          MessageTime = System.Data.Entity.DbFunctions.CreateTime(t.MessageTime.Hour, t.MessageTime.Minute, 00),
+                          Picture = String.IsNullOrEmpty(em.ApplicantPicture)? "/Images/default_emp.png":em.ApplicantPicture,
+                          Name = em.FirstName + " " + em.MiddleName + " " + em.LastName
+
+                      };
+
+
+
+            Clients.Group(UserId).SendMessageToAll(allMsg, UserId);
+
+
+        }
+        
+
+
+        public void Send(string who, string message,string date, string time)
+        {
+           // string userid = Context.User.Identity.Name;
+
+            string UserId = Context.User.Identity.GetUserId();
+
+            var Msg = (from em in db.Employees
+                         join u in db.Users on em.Id equals u.EmployeeId
+                         where u.Id  == UserId
+                        
+                         select new ChatHistoryVM
+                         {
+                             SenderId = UserId,
+                             Message = message,
+                             MessageDate = date,
+                             MessageTimeStr = time,
+                             Picture = String.IsNullOrEmpty(em.ApplicantPicture) ? "/Images/default_emp.png" : em.ApplicantPicture,
+                             Name = em.FirstName + " " + em.MiddleName + " " + em.LastName
+
+                         }).FirstOrDefault();
+
+
+
+            SaveMessageToDB(UserId,who,message);
+
+
+            Clients.Group(who).addPrivateMessage(UserId, Msg);
+            //Clients.Group("test").addGroupMessage(UserId, message);
+
+        }
+
+        private void SaveMessageToDB(string Sender,  string Receiver, string message)
+        {
+            ChatHistory SenderMessage = new ChatHistory();
+            SenderMessage.SenderId = Sender; //UserId = SenderId
+
+            SenderMessage.ReceiverId = Receiver;
+
+            SenderMessage.Message = message;
+
+            SenderMessage.MessageTime = DateTime.Now;
+
+
+            db.ChatHistories.Add(SenderMessage);
+            db.SaveChanges();
+
+
+        }
+
+        public void SendToGroup(string who, string message)
+        {
+            // string userid = Context.User.Identity.Name;
+
+            string UserId = Context.User.Identity.GetUserId();
+
+
+           // SaveMessageToDB(UserId, who, message);
+
+
+            Clients.Group("test").addGroupMessage(who, message);
+
+        }
+
+
+        public void SendToAll(string sender, string message,string date,string currTime)
+        {
+            // string userid = Context.User.Identity.Name;
+
+            string UserId = Context.User.Identity.GetUserId();
+
+
+            var Msg = (from em in db.Employees
+                      join u in db.Users on em.Id equals u.EmployeeId
+                       where u.Id == UserId
+                      select new ChatHistoryVM
+                      {
+                          SenderId = UserId,
+                          Message = message,
+                          MessageDate = date,
+                          MessageTimeStr = currTime,
+                          Picture = String.IsNullOrEmpty(em.ApplicantPicture) ? "/Images/default_emp.png" : em.ApplicantPicture,
+                          Name = em.FirstName + " " + em.MiddleName + " " + em.LastName
+
+                      }).FirstOrDefault();
+
+
+
+
+            SaveMessageToDB(sender, "all", message);
+
+
+            Clients.All.addMessageToAll(UserId, Msg);
+
+        }
+        public override Task OnConnected()
+        {
+
+
+            if (Context.User != null)
+            {
+              
+
+               
+                string name = Context.User.Identity.Name;
+                string Uid = Context.User.Identity.GetUserId();
+
+               ApplicationUser NewUser = db.Users.Where(t => t.Id == Uid).FirstOrDefault();
+               Employee EmployeeInfo = db.Employees.Where(t => t.Id == NewUser.EmployeeId).FirstOrDefault();
+
+
+                //Groups.Add(Context.ConnectionId, name);
+
+               Groups.Add(Context.ConnectionId, Uid);
+
+                //UserHandler.ConnectedUsers.RemoveWhere(x => x.UserName == Context.User.Identity.Name);
+
+                UserHandler.ConnectedUsers.RemoveWhere(x => x.UserId == Uid);
+                UserHandler.ConnectedUsers.Add(new User
+                {
+                    ConnectionId = Context.ConnectionId,
+                    UserId = Uid,
+                    UserName = Context.User.Identity.Name,
+                    FullName = EmployeeInfo.FirstName + " "+ EmployeeInfo.MiddleName + " " + EmployeeInfo.LastName,
+                    Designation = EmployeeInfo.Designation!=null? EmployeeInfo.Designation.DesignationName:"",
+                    Picture = EmployeeInfo.ApplicantPicture
+                });
+
+                
+                // int f = notifications.number;
+                // Clients.Group(name).showNotification(f);
+                // var cc = db.notifis.Where(x => x.uId == Uid).ToList();
+                //if (cc.Count > 0)
+                //{
+                //    Clients.Group(name).showNotification(f);
+                //}
+
+                //Clients.All.showNotification(f);
+
+                // Add this new user to a group
+                Groups.Add(Context.ConnectionId, "test");
+
+
+                Clients.All.showLoggedUsers(UserHandler.ConnectedUsers.OrderBy(x => x.UserName).ToArray());
+              
+            }
+
+
+            return base.OnConnected();
+        }
+
+
+        public override Task OnDisconnected()
+        {
+            //UserHandler.ConnectedUsers.RemoveWhere(x => x.UserName == Context.User.Identity.Name);
+
+            UserHandler.ConnectedUsers.RemoveWhere(x => x.UserId == Context.User.Identity.GetUserId());
+
+            // UserHandler.ConnectedUsers.RemoveWhere(x => x.ConnectionId == Context.ConnectionId  );
+
+          
+
+            Clients.All.showLoggedUsersAfterDisCon(UserHandler.ConnectedUsers.OrderBy(x => x.UserName).Select(x => x.UserId).ToArray());
+
+            return base.OnDisconnected();
+        }
+
+
+        private void signalConnectionId(string signalConnectionId)
+        {
+            Clients.All.Noti(signalConnectionId);
+        }
+        public void AfterConnected()
+        {
+
+            Clients.Caller.hello("message");
+    
+        }
+    }
+
+    public class ChatHistoryVM
+    {
+
+        public int Id { get; set; }
+
+        public string SenderId { get; set; }
+
+        public string ReceiverId { get; set; }
+
+        public string Message { get; set; }
+
+        public string MessageDate { get; set; }
+        public TimeSpan? MessageTime { get; set; }
+
+        public string MessageTimeStr { get; set; }
+
+        public bool IsSeen { get; set; }
+
+        public string Picture { get; set; }
+
+        public string Name { get; set; }
+    } 
+
+}
